@@ -1,17 +1,55 @@
-//
-//  PungentRootsTests.swift
-//  PungentRootsTests
-//
-//  Created by Patrick Brown on 9/17/25.
-//
-
+import Foundation
 import Testing
 @testable import PungentRoots
 
-struct PungentRootsTests {
+struct DetectionEngineTests {
+    private let dictionary: DetectDictionary = {
+        do {
+            return try DictionaryLoader().load()
+        } catch {
+            fatalError("Failed to load detection dictionary: \(error)")
+        }
+    }()
 
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
+    @Test("Onion powder triggers contains verdict")
+    func onionPowderContains() {
+        let engine = DetectionEngine(dictionary: dictionary)
+        let sample = "Ingredients: wheat flour, onion powder, salt"
+        let analysis = engine.analyze(rawText: sample)
+
+        #expect(analysis.result.verdict == .contains)
+        #expect(analysis.result.matches.contains { $0.kind == .definite })
     }
 
+    @Test("Ambiguous terms lead to needs review")
+    func ambiguousNeedsReview() {
+        let engine = DetectionEngine(dictionary: dictionary)
+        let sample = "Ingredients: vegetable stock, spices, natural flavors"
+        let analysis = engine.analyze(rawText: sample)
+
+        #expect(analysis.result.verdict == .needsReview)
+        #expect(analysis.result.riskScore >= 0.3)
+        #expect(analysis.result.matches.contains { $0.kind == .ambiguous })
+    }
+
+    @Test("Safe list stays safe")
+    func safeIngredientsRemainSafe() {
+        let engine = DetectionEngine(dictionary: dictionary)
+        let sample = "Ingredients: wheat flour, sugar, cocoa, salt"
+        let analysis = engine.analyze(rawText: sample)
+
+        #expect(analysis.result.verdict == .safe)
+        #expect(analysis.result.matches.isEmpty)
+        #expect(analysis.result.riskScore == 0)
+    }
+
+    @Test("Fuzzy matching ignores suffix terms")
+    func fuzzyIgnoresSuffixOnlyTokens() {
+        let engine = DetectionEngine(dictionary: dictionary)
+        let sample = "Ingredients: sea salt, seasoning blend"
+        let analysis = engine.analyze(rawText: sample)
+
+        #expect(analysis.result.matches.allSatisfy { $0.kind != .fuzzy })
+        #expect(analysis.result.verdict == .needsReview)
+    }
 }
