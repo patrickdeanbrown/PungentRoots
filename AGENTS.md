@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `PungentRoots/`: SwiftUI app sources (entry in `PungentRootsApp.swift`, UI in `ContentView.swift`, feature folders like `Detection/`, `Services/`, `Views/` house the rule engine, OCR pipeline, history/detail flows, and settings UI).
+- `PungentRoots/`: SwiftUI app sources (entry in `PungentRootsApp.swift`, UI in `ContentView.swift`, feature folders like `Detection/`, `Services/`, `Views/` house the rule engine, OCR pipeline, scan results surfaces, and settings UI).
 - `PungentRootsTests/`: unit targets built with Apple’s new `Testing` framework—use it for rule engine, normalization, and service fixtures.
 - `PungentRootsUITests/`: UI automation and accessibility assertions.
 - `Assets.xcassets/`: app imagery, color sets, and future brand tokens; keep generated thumbnails out of source control.
@@ -38,4 +38,4 @@
 
 ## Security & Privacy Notes
 - Processing stays on-device; do not introduce network calls without explicit approval.
-- Strip sensitive text from debug logs and dispose of intermediate scan images after persistence completes.
+- Strip sensitive text from debug logs and dispose of intermediate scan images immediately after analysis completes.

@@ -25,18 +25,13 @@ struct HighlightedTextView: View {
             else { continue }
             let attributedRange = lower..<upper
             var segment = AttributedString(text[range])
-            switch match.kind {
-            case .definite:
+            let isCertain = match.kind == .definite || match.kind == .synonym || match.kind == .pattern
+            if isCertain {
                 segment.foregroundColor = .red
                 segment.font = .body.bold()
-            case .synonym, .pattern:
-                segment.foregroundColor = .orange
-                segment.underlineStyle = .single
-            case .ambiguous:
+            } else {
                 segment.foregroundColor = .yellow
-                segment.backgroundColor = Color.yellow.opacity(0.2)
-            case .fuzzy:
-                segment.foregroundColor = .pink
+                segment.backgroundColor = Color.yellow.opacity(0.25)
             }
             attributed.replaceSubrange(attributedRange, with: segment)
         }
