@@ -26,7 +26,10 @@ struct SettingsView: View {
             }
 
             Section("Support") {
-                Text("If a label uses a term we miss or misclassifies, save the scan with your override so we can improve future releases.")
+                Text("If a label uses a term we miss or misclassifies, capture a screenshot and share it with support so we can tune the detector quickly.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Text("Scans are not retained; each check runs entirely on-device for fresh results.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
