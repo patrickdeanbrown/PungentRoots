@@ -7,7 +7,7 @@ struct SettingsView: View {
         Form {
             Section("Privacy") {
                 Label("All processing stays on this device.", systemImage: "lock.shield")
-                Text("Camera access is used only to scan ingredient labels. No photos or text leave your device.")
+                Text("Camera access powers automatic captures. No photos or text leave your device.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -26,7 +26,10 @@ struct SettingsView: View {
             }
 
             Section("Support") {
-                Text("If a label uses a term we miss or misclassifies, save the scan with your override so we can improve future releases.")
+                Text("If a label uses a term we miss or misclassifies, capture a screenshot and share it with support so we can tune the detector quickly.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Text("Scans are transient; rescan for the freshest results and highlight screenshots for feedback.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

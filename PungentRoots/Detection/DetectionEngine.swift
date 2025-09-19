@@ -61,7 +61,8 @@ struct DetectionEngine {
         // Pattern matches
         for pattern in dictionary.patterns {
             for range in normalized.ranges(of: pattern, options: [.caseInsensitive]) {
-                let match = Match(term: pattern, kind: .pattern, range: range, note: "Pattern match")
+                let snippet = snippet(in: normalized, range: range)
+                let match = Match(term: snippet, kind: .pattern, range: range, note: "Pattern match")
                 addMatch(match, scoreContribution: 0.8)
             }
         }
@@ -70,7 +71,8 @@ struct DetectionEngine {
         for term in dictionary.ambiguous {
             let pattern = "\\b" + NSRegularExpression.escapedPattern(for: term) + "\\b"
             for range in normalized.ranges(of: pattern) {
-                let match = Match(term: term, kind: .ambiguous, range: range, note: "Ambiguous ingredient")
+                let snippet = snippet(in: normalized, range: range)
+                let match = Match(term: snippet, kind: .ambiguous, range: range, note: "Ambiguous ingredient")
                 addMatch(match, scoreContribution: 0.3, isAmbiguous: true)
             }
         }
@@ -80,10 +82,16 @@ struct DetectionEngine {
         let canonicalTargets = canonicalTokenTargets()
         var recordedFuzzyTokens = Set<String>()
 
+        let fuzzyExclusions: Set<String> = [
+            "calcium", "calciums", "natural", "flavor", "flavors", "flavour", "flavours", "oil", "oils"
+        ]
+
         for token in tokens {
             let tokenString = String(token.text)
             let lowercasedToken = tokenString.lowercased()
             guard recordedFuzzyTokens.contains(lowercasedToken) == false else { continue }
+            guard lowercasedToken.count > 3 else { continue }
+            guard fuzzyExclusions.contains(lowercasedToken) == false else { continue }
             let threshold = lowercasedToken.count <= 6 ? 1 : 2
             var bestTarget: String?
             for target in canonicalTargets {
@@ -126,6 +134,13 @@ struct DetectionEngine {
             }
         let hints = dictionary.fuzzyHints.map { $0.lowercased() }
         return Array(Set(singleWordTerms + hints))
+    }
+
+    private func snippet(in text: String, range: Range<Int>) -> String {
+        guard range.lowerBound >= 0, range.upperBound <= text.utf16.count else { return text }
+        let start = String.Index(utf16Offset: range.lowerBound, in: text)
+        let end = String.Index(utf16Offset: range.upperBound, in: text)
+        return String(text[start..<end])
     }
 
     private func levenshtein(_ lhs: String, _ rhs: String) -> Int {

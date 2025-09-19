@@ -7,27 +7,27 @@
 
 ## 2. Guiding Principles & Apple Best Practices
 - Keep all processing on-device and isolate state using SwiftUI environment injection so views stay declarative and testable.[^swiftui-state]
-- Use SwiftData models as the single source of truth with explicit indexing and value preservation rules to avoid data loss when records evolve.[^swiftdata-model]
+- Keep scan data ephemeral; rely on in-memory state and detection services rather than persisted records.[^swiftui-state]
 - Respect Apple’s Human Interface Guidelines by pairing color with clear iconography and typography, delivering accessible feedback across light/dark modes.[^hig-color]
 - Prepare Vision and VisionKit requests up front, tune them for accuracy versus speed, and scope work to regions of interest to stay within latency targets.[^vision-ocr][^visionkit]
 - Tokenize text with NaturalLanguage to reduce custom parsing logic and improve resilience to edge cases like Unicode punctuation.[^nltagger]
 
 ## 3. MVP Scope Check
-- **Input:** Capture via VisionKit document camera (preferred) and system photo picker fallback; paste or manual entry for text.
-- **Detection:** Normalize, tokenize, run rule engine (exact/synonym/pattern/fuzzy), produce risk score, verdict, and rationale.
-- **Output:** Highlighted text view, explanation list, verdict chip, optional save + user override, history browser with filters.
-- **Persistence:** Store scans, normalized text, matches (embedded DTO), verdict overrides, and optional thumbnails in SwiftData.
+- **Input:** Auto-capture through an `AVCaptureSession` tuned for ingredient labels, with a single rescan affordance for manual retries.
+- **Detection:** Normalize text, run deterministic matching (exact/synonym/pattern/fuzzy), and maintain internal scoring to inform guidance while surfacing match lists only.
+- **Output:** Inline match list with red/yellow severity, optional transcript toggle, and caméra tips encouraging fresh rescans (no persistent history).
+- **Persistence:** Keep captures ephemeral; explore opt-in history later if user demand returns.
 
 ## 4. Architecture Overview
 1. **Input Layer**
-   - Route camera scans through a `DocumentScanCoordinator` that owns `VNDocumentCameraViewController` lifecycle, converts pages to CGImage, and funnels them to OCR tasks.
-   - Surface paste/manual entry via a focused SwiftUI sheet with text editor, using `TextEditor` + paste button.
+   - Run a dedicated `LiveCaptureController` wrapping `AVCaptureSession`, `AVCaptureVideoDataOutput`, and Vision text recognition for automatic triggers.
+   - Provide pinch/slider zoom, macro-focused configuration, and optional rescan control once results are shown.
 2. **OCR & Normalization Service**
    - `TextAcquisitionService` orchestrates OCR tasks, returns normalized text with source metadata, and strips hyphen breaks, bullet characters, and problematic whitespace.
 3. **Detection Engine**
    - Stateless service that consumes normalized text plus bundled dictionary JSON, emits matches with ranges and rationale, and scores risk per the weighting table.
 4. **Persistence Layer**
-   - SwiftData `ModelContainer` configured at app entry. Background `ModelContext` for ingestion-heavy operations to avoid blocking the main actor.
+   - Auto-capture controller manages camera state on a background queue while results stay on the main actor for UI updates.
 5. **Presentation Layer**
    - SwiftUI navigation stack: Home (actions + history) → Capture/Paste flows → Result detail. Derived view models expose immutable state to views, with mutation isolated to services.
 
@@ -35,7 +35,7 @@
 - Configure a reusable `VNRecognizeTextRequest` at startup, specifying `.accurate` recognition for document scans and enabling language correction to improve ingredient accuracy, with the option to fall back to `.fast` for degraded images.[^vision-ocr]
 - Populate `recognitionLanguages` with `Locale.Language("en-US")` initially and expose a setting stub for future locales; rely on `supportedRecognitionLanguages` to validate availability.[^vision-ocr]
 - Limit processing to the detected ingredient block (VisionKit’s pre-cropped output) or apply a lightweight rectangle detection before OCR to cut noise.
-- Run OCR on a background task; return results via `MainActor` isolation before writing to SwiftData to satisfy Vision threading requirements.
+- Run OCR on a background task; return results via `MainActor` isolation to satisfy Vision threading requirements and update UI state safely.
 
 ## 6. Text Normalization & Tokenization
 - Normalize using Unicode NFKC, lowercase, collapse whitespace, rejoin hyphenated breaks, and strip punctuation that splits tokens unexpectedly.
@@ -77,11 +77,11 @@
 - Cache scans locally only with explicit user opt-in for saving; expose a quick “Clear History” action that issues a batch delete on the main actor.
 
 ## 13. Delivery Timeline (10 Working Days + Buffer)
-1. **Day 1–2:** Project scaffolding, SwiftData models, dictionary bundle, normalization utilities, paste flow, detection engine (exact + pattern + ambiguous).
-2. **Day 3–4:** VisionKit capture pipeline, OCR service, background task wiring, highlight rendering view.
-3. **Day 5:** Results screen UX (verdict chip, highlights, match list), history view with filters, user override persistence.
-4. **Day 6:** Fuzzy matching, haptics and accessibility pass (Dynamic Type, VoiceOver reads verdict first).
-5. **Day 7:** Error states, empty history illustrations, permissions copy, performance profiling (time budget instrumentation).
+1. **Day 1–2:** Auto-capture controller scaffolding, camera authorization flow, detection integration, and loading/error states.
+2. **Day 3–4:** Zoom/macro tuning, alignment guides, and device tests across lighting scenarios.
+3. **Day 5:** Result card refinements, transcript toggle, color tokens, and motion cues (respecting Reduce Motion).
+4. **Day 6:** Accessibility pass (contrast, Dynamic Type, VoiceOver announcements) and logging instrumentation.
+5. **Day 7:** Error state copy, resiliency for capture failures, and guidance updates.
 6. **Day 8–9:** Unit + integration tests, sample image fixtures, automation hooks (CI script skeleton).
 7. **Day 10:** Polish, documentation, App Store asset placeholders, prepare TestFlight build.
 8. **Days 11–14 (buffer):** Stabilization, localization groundwork (dictionary versioning), release checklist.

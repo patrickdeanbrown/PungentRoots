@@ -27,7 +27,7 @@ enum DetectionFixtures {
     static let ambiguousSamples: [String] = [
         "Ingredients: vegetable stock, spices, salt",
         "Ingredients: soup base, yeast extract, parsley",
-        "Ingredients: natural flavors, paprika, cumin",
+        "Ingredients: vegetable broth, paprika, cumin",
         "Ingredients: seasoning blend, sea salt, sugar",
         "Ingredients: marinade with aromatics and herbs",
         "Ingredients: salsa, cilantro, lime juice",

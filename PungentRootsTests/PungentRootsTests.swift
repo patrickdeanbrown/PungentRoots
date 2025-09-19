@@ -24,7 +24,7 @@ struct DetectionEngineTests {
     @Test("Ambiguous terms lead to needs review")
     func ambiguousNeedsReview() {
         let engine = DetectionEngine(dictionary: dictionary)
-        let sample = "Ingredients: vegetable stock, spices, natural flavors"
+        let sample = "Ingredients: vegetable stock, spices, paprika"
         let analysis = engine.analyze(rawText: sample)
 
         #expect(analysis.result.verdict == .needsReview)
