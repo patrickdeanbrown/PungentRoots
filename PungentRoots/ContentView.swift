@@ -8,6 +8,7 @@ struct ContentView: View {
     @State private var normalizedPreview: String = ""
     @State private var detectionResult: DetectionResult?
     @State private var recognizedItems: [LiveCaptureController.RecognizedPayload.Item] = []
+    @State private var capturedImage: UIImage?
     @State private var highlightedBoxes: [DetectionOverlay] = []
     @State private var isProcessing = false
     @State private var isShowingFullText = false
@@ -213,6 +214,8 @@ struct ContentView: View {
                     DetectionResultView(
                         normalizedText: normalizedPreview,
                         result: result,
+                        capturedImage: capturedImage,
+                        detectionBoxes: highlightedBoxes,
                         isShowingFullText: $isShowingFullText
                     )
                 }
@@ -276,6 +279,7 @@ struct ContentView: View {
             isShowingFullText = false
             highlightedBoxes = []
             recognizedItems = payload.items
+            capturedImage = payload.capturedImage
             let recognized = appEnvironment.textAcquisition.makeRecognizedText(from: payload.items.map { $0.text })
             normalizedPreview = recognized.normalized
             completeAnalysis(normalized: recognized.normalized)
@@ -316,6 +320,7 @@ struct ContentView: View {
         isProcessing = false
         highlightedBoxes = []
         recognizedItems = []
+        capturedImage = nil
 #if os(iOS)
         captureController.resumeScanning()
 #endif

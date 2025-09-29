@@ -24,6 +24,7 @@ final class LiveCaptureController: NSObject, ObservableObject {
         }
 
         let items: [Item]
+        let capturedImage: UIImage?
 
         var strings: [String] {
             items.map { $0.text }
@@ -306,10 +307,13 @@ extension LiveCaptureController: AVCaptureVideoDataOutputSampleBufferDelegate {
             let combined = items.map { $0.text }.joined(separator: " ")
             guard items.isEmpty == false, combined.count >= ocrConfig.minimumCaptureLength else { return }
 
+            // Capture the frame as an image for display in results
+            let capturedImage = captureImage(from: pixelBuffer)
+
             scanningEnabled = false
             updateState(.processing)
             DispatchQueue.main.async {
-                self.onCapture?(RecognizedPayload(items: items))
+                self.onCapture?(RecognizedPayload(items: items, capturedImage: capturedImage))
             }
         } catch {
             scanningEnabled = false
@@ -330,6 +334,34 @@ extension LiveCaptureController: AVCaptureVideoDataOutputSampleBufferDelegate {
         let clampedHeight = max(0, min(1 - clampedY, converted.height))
 
         return CGRect(x: clampedX, y: clampedY, width: clampedWidth, height: clampedHeight)
+    }
+
+    private func captureImage(from pixelBuffer: CVPixelBuffer, maxWidth: CGFloat = 800) -> UIImage? {
+        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+        let context = CIContext(options: nil)
+
+        guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else { return nil }
+
+        // Create UIImage with proper orientation (rotated right)
+        let image = UIImage(cgImage: cgImage, scale: 1.0, orientation: .right)
+
+        // Resize if needed for memory efficiency
+        if image.size.width > maxWidth {
+            return resizeImage(image, targetWidth: maxWidth)
+        }
+
+        return image
+    }
+
+    private func resizeImage(_ image: UIImage, targetWidth: CGFloat) -> UIImage? {
+        let scale = targetWidth / image.size.width
+        let targetHeight = image.size.height * scale
+        let targetSize = CGSize(width: targetWidth, height: targetHeight)
+
+        let renderer = UIGraphicsImageRenderer(size: targetSize)
+        return renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: targetSize))
+        }
     }
 }
 
@@ -372,6 +404,7 @@ final class LiveCaptureController: ObservableObject {
         }
 
         let items: [Item]
+        let capturedImage: UIImage?
 
         var strings: [String] { items.map { $0.text } }
     }

@@ -3,12 +3,28 @@ import SwiftUI
 struct DetectionResultView: View {
     let normalizedText: String
     let result: DetectionResult
+    let capturedImage: UIImage?
+    let detectionBoxes: [DetectionOverlay]
     @Binding var isShowingFullText: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            if let image = capturedImage, !detectionBoxes.isEmpty {
+                capturedImageSection(image: image)
+            }
             matchesSection
             disclosureSection
+        }
+    }
+
+    @ViewBuilder
+    private func capturedImageSection(image: UIImage) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Captured Frame")
+                .font(.headline)
+                .foregroundStyle(Color.accentColor)
+            CapturedImageOverlayView(image: image, boxes: detectionBoxes)
+                .frame(maxHeight: 300)
         }
     }
 
