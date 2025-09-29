@@ -3,10 +3,12 @@ import Foundation
 struct DetectionEngine {
     private let dictionary: DetectDictionary
     private let normalizer: TextNormalizer
+    private let scoring: DetectionScoring
 
-    init(dictionary: DetectDictionary, normalizer: TextNormalizer = TextNormalizer()) {
+    init(dictionary: DetectDictionary, normalizer: TextNormalizer = TextNormalizer(), scoring: DetectionScoring = .default) {
         self.dictionary = dictionary
         self.normalizer = normalizer
+        self.scoring = scoring
     }
 
     func analyze(rawText: String) -> (normalized: String, result: DetectionResult) {
@@ -31,13 +33,13 @@ struct DetectionEngine {
                 hasDefinite = true
             }
             if isDefinite {
-                strongScore = 1.0
+                strongScore = scoring.maxScore
                 return
             }
             if isAmbiguous {
-                ambiguousScore = min(0.6, ambiguousScore + scoreContribution)
+                ambiguousScore = min(scoring.maxAmbiguousScore, ambiguousScore + scoreContribution)
             } else {
-                strongScore = min(1.0, strongScore + scoreContribution)
+                strongScore = min(scoring.maxScore, strongScore + scoreContribution)
             }
         }
 
@@ -46,7 +48,7 @@ struct DetectionEngine {
             let pattern = "\\b" + NSRegularExpression.escapedPattern(for: term) + "\\b"
             for range in normalized.ranges(of: pattern) {
                 let match = Match(term: term, kind: .definite, range: range, note: "Exact match")
-                addMatch(match, scoreContribution: 1.0, isDefinite: true)
+                addMatch(match, scoreContribution: scoring.definiteMatchScore, isDefinite: true)
             }
         }
 
@@ -54,7 +56,7 @@ struct DetectionEngine {
             let pattern = "\\b" + NSRegularExpression.escapedPattern(for: term) + "\\b"
             for range in normalized.ranges(of: pattern) {
                 let match = Match(term: term, kind: .synonym, range: range, note: "Synonym match")
-                addMatch(match, scoreContribution: 0.8)
+                addMatch(match, scoreContribution: scoring.synonymMatchScore)
             }
         }
 
@@ -63,7 +65,7 @@ struct DetectionEngine {
             for range in normalized.ranges(of: pattern, options: [.caseInsensitive]) {
                 let snippet = snippet(in: normalized, range: range)
                 let match = Match(term: snippet, kind: .pattern, range: range, note: "Pattern match")
-                addMatch(match, scoreContribution: 0.8)
+                addMatch(match, scoreContribution: scoring.patternMatchScore)
             }
         }
 
@@ -73,7 +75,7 @@ struct DetectionEngine {
             for range in normalized.ranges(of: pattern) {
                 let snippet = snippet(in: normalized, range: range)
                 let match = Match(term: snippet, kind: .ambiguous, range: range, note: "Ambiguous ingredient")
-                addMatch(match, scoreContribution: 0.3, isAmbiguous: true)
+                addMatch(match, scoreContribution: scoring.ambiguousMatchScore, isAmbiguous: true)
             }
         }
 
@@ -105,15 +107,15 @@ struct DetectionEngine {
             recordedFuzzyTokens.insert(lowercasedToken)
             let note = "Possible OCR error: \(target)"
             let match = Match(term: tokenString, kind: .fuzzy, range: token.range, note: note)
-            addMatch(match, scoreContribution: 0.7)
+            addMatch(match, scoreContribution: scoring.fuzzyMatchScore)
         }
 
-        let coreScore = hasDefinite ? 1.0 : max(strongScore, ambiguousScore)
+        let coreScore = hasDefinite ? scoring.maxScore : max(strongScore, ambiguousScore)
         let verdict: Verdict
         switch coreScore {
-        case 0.8...:
+        case scoring.containsThreshold...:
             verdict = .contains
-        case 0.3...:
+        case scoring.needsReviewThreshold...:
             verdict = .needsReview
         default:
             verdict = .safe

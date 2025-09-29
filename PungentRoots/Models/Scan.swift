@@ -73,6 +73,19 @@ enum MatchKind: String, Codable, CaseIterable, Hashable {
     case pattern
     case ambiguous
     case fuzzy
+
+    /// Priority value for sorting and severity assessment
+    /// Higher values indicate more severe/definite matches
+    var priority: Int {
+        switch self {
+        case .definite:
+            return 3
+        case .synonym, .pattern:
+            return 2
+        case .ambiguous, .fuzzy:
+            return 1
+        }
+    }
 }
 
 struct DetectionResult {

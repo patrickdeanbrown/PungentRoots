@@ -20,18 +20,20 @@ struct TextAcquisitionService {
     }
 
     private let normalizer: TextNormalizer
+    private let ocrConfig: OCRConfiguration
     private let logger = Logger(subsystem: "co.ouchieco.PungentRoots", category: "TextAcquisition")
 
-    init(normalizer: TextNormalizer = TextNormalizer()) {
+    init(normalizer: TextNormalizer = TextNormalizer(), ocrConfig: OCRConfiguration = .default) {
         self.normalizer = normalizer
+        self.ocrConfig = ocrConfig
     }
 
     func recognize(from source: Source) async throws -> RecognizedText {
         let start = DispatchTime.now()
         let request = VNRecognizeTextRequest()
-        request.recognitionLevel = .accurate
-        request.usesLanguageCorrection = true
-        request.recognitionLanguages = ["en-US"]
+        request.recognitionLevel = ocrConfig.recognitionLevel
+        request.usesLanguageCorrection = ocrConfig.usesLanguageCorrection
+        request.recognitionLanguages = ocrConfig.recognitionLanguages
         request.revision = VNRecognizeTextRequestRevision3
 
         let observations: [VNRecognizedTextObservation]

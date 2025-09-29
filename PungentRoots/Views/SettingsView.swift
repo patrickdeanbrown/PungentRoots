@@ -2,9 +2,30 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var appEnvironment: AppEnvironment
+    @AppStorage("retakeButtonAlignment") private var retakeAlignmentRaw: String = RetakeButtonAlignment.trailing.rawValue
 
     var body: some View {
         Form {
+            Section("Capture") {
+                Picker("Retake button", selection: $retakeAlignmentRaw) {
+                    ForEach(RetakeButtonAlignment.allCases) { alignment in
+                        Text(alignment.displayName).tag(alignment.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                DisclosureGroup("Capture tips") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Move close so the ingredient panel fills the frame.", systemImage: "viewfinder")
+                        Label("Let the app focus — the scan triggers when text is sharp.", systemImage: "bolt.badge.clock")
+                        Label("Highlights appear instantly; rescan whenever labels change.", systemImage: "arrow.clockwise")
+                    }
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
+                }
+            }
+
             Section("Privacy") {
                 Label("All processing stays on this device.", systemImage: "lock.shield")
                 Text("Camera access powers automatic captures. No photos or text leave your device.")
