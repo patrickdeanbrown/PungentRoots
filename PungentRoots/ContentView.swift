@@ -13,6 +13,7 @@ struct ContentView: View {
     @State private var isProcessing = false
     @State private var isShowingFullText = false
     @State private var isShowingSettings = false
+    @State private var isShowingReportIssue = false
     @State private var interfaceError: String?
 
     private let logger = Logger(subsystem: "co.ouchieco.PungentRoots", category: "ScanFlow")
@@ -202,12 +203,7 @@ struct ContentView: View {
         Group {
             if isProcessing {
                 card {
-                    HStack(spacing: 12) {
-                        ProgressView()
-                        Text("Processing capture…")
-                            .font(.body)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    ProcessingStateView()
                 }
             } else if let result = detectionResult, !normalizedPreview.isEmpty {
                 card {
@@ -216,7 +212,9 @@ struct ContentView: View {
                         result: result,
                         capturedImage: capturedImage,
                         detectionBoxes: highlightedBoxes,
-                        isShowingFullText: $isShowingFullText
+                        isShowingFullText: $isShowingFullText,
+                        onRescan: rescan,
+                        onReportIssue: { isShowingReportIssue = true }
                     )
                 }
             } else {
@@ -227,22 +225,9 @@ struct ContentView: View {
 
     private var guidanceLink: some View {
         Group {
-            if detectionResult == nil {
-                Button {
-                    isShowingSettings = true
-                } label: {
-                    Label("Capture tips", systemImage: "sparkles")
-                        .font(.footnote.weight(.semibold))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(
-                            Capsule()
-                                .fill(Color.accentColor.opacity(0.12))
-                        )
-                }
-                .buttonStyle(.plain)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityHint("Opens capture tips in Info & Settings")
+            if detectionResult == nil && !isProcessing {
+                EmptyStateView()
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
             }
         }
     }
@@ -272,6 +257,12 @@ struct ContentView: View {
 
     private func handleRecognizedText(_ payload: LiveCaptureController.RecognizedPayload) {
         logger.info("auto_capture_recognized lines=\(payload.items.count, privacy: .public)")
+
+        // Haptic feedback on capture
+        #if os(iOS)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        #endif
+
         Task { @MainActor in
             isProcessing = true
             detectionResult = nil
@@ -295,6 +286,19 @@ struct ContentView: View {
         normalizedPreview = analysis.normalized
         updateHighlights(for: analysis.result)
         announceSummary(for: analysis.result)
+
+        // Haptic feedback based on verdict
+        #if os(iOS)
+        let feedback = UINotificationFeedbackGenerator()
+        switch analysis.result.verdict {
+        case .safe:
+            feedback.notificationOccurred(.success)
+        case .needsReview:
+            feedback.notificationOccurred(.warning)
+        case .contains:
+            feedback.notificationOccurred(.error)
+        }
+        #endif
     }
 
     private func announceSummary(for result: DetectionResult) {
@@ -314,6 +318,12 @@ struct ContentView: View {
 
     private func rescan() {
         logger.info("auto_capture_rescan")
+
+        // Haptic feedback on button tap
+        #if os(iOS)
+        UISelectionFeedbackGenerator().selectionChanged()
+        #endif
+
         normalizedPreview = ""
         detectionResult = nil
         isShowingFullText = false

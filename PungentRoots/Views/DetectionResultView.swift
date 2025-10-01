@@ -6,25 +6,60 @@ struct DetectionResultView: View {
     let capturedImage: UIImage?
     let detectionBoxes: [DetectionOverlay]
     @Binding var isShowingFullText: Bool
+    let onRescan: () -> Void
+    let onReportIssue: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 20) {
+            // Verdict badge at top
+            VerdictBadge(verdict: result.verdict)
+
             if let image = capturedImage, !detectionBoxes.isEmpty {
                 capturedImageSection(image: image)
             }
             matchesSection
             disclosureSection
+            actionButtonsSection
         }
     }
 
     @ViewBuilder
     private func capturedImageSection(image: UIImage) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Captured Frame")
-                .font(.headline)
-                .foregroundStyle(Color.accentColor)
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Detected Ingredients")
+                    .font(.headline)
+                    .foregroundStyle(Color.accentColor)
+                Text("Highlighted text shows detected matches")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             CapturedImageOverlayView(image: image, boxes: detectionBoxes)
                 .frame(maxHeight: 300)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.accentColor.opacity(0.2), lineWidth: 1)
+                )
+                .accessibilityHint("Tap to view full size")
+
+            // Color legend
+            HStack(spacing: 16) {
+                legendItem(color: .red, label: "High")
+                legendItem(color: .orange, label: "Medium")
+                legendItem(color: .yellow, label: "Review")
+            }
+            .font(.caption2)
+        }
+    }
+
+    private func legendItem(color: Color, label: String) -> some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+            Text(label)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -62,6 +97,37 @@ struct DetectionResultView: View {
                 HighlightedTextView(text: normalizedText, matches: result.matches)
                     .frame(maxHeight: 260)
                     .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    private var actionButtonsSection: some View {
+        VStack(spacing: 12) {
+            Divider()
+                .padding(.vertical, 8)
+
+            // Primary action: Scan another
+            Button(action: onRescan) {
+                Label("Scan Another Label", systemImage: "camera.rotate")
+                    .font(.body.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .accessibilityLabel("Scan another label")
+            .accessibilityHint("Returns to camera to scan a new ingredient label")
+
+            // Secondary action: Report issue (only for review/contains)
+            if result.verdict != .safe {
+                Button(action: onReportIssue) {
+                    Label("Report Issue", systemImage: "exclamationmark.bubble")
+                        .font(.body)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .accessibilityLabel("Report issue")
+                .accessibilityHint("Share feedback if this detection is incorrect")
             }
         }
     }
@@ -123,13 +189,13 @@ struct DetectionResultView: View {
         var body: some View {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .imageScale(.small)
-                    .foregroundStyle(tint)
-                    .frame(width: 22, height: 22)
-                    .background(tint.opacity(0.15), in: Circle())
+                    .font(.system(size: iconSize, weight: iconWeight))
+                    .foregroundStyle(tint.opacity(iconOpacity))
+                    .frame(width: iconFrameSize, height: iconFrameSize)
+                    .background(tint.opacity(backgroundOpacity), in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
                     Text(summary.term)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.subheadline.weight(textWeight))
                         .foregroundStyle(.primary)
                     if summary.count > 1 {
                         Text("x\(summary.count)")
@@ -143,16 +209,71 @@ struct DetectionResultView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(tint.opacity(0.1))
+                    .fill(tint.opacity(cardBackgroundOpacity))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(tint.opacity(0.4), lineWidth: 1)
+                    .stroke(tint.opacity(borderOpacity), lineWidth: borderWidth)
             )
+            .scaleEffect(scaleEffect)
+            .animation(.easeInOut(duration: 0.3), value: summary.kind)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(label)
             .accessibilityHint("Severity: \(severityDescription)")
             .accessibilitySortPriority(Double(summary.priority))
+        }
+
+        // Visual hierarchy properties based on priority
+        private var iconSize: CGFloat {
+            summary.kind == .definite ? 20 : 18
+        }
+
+        private var iconWeight: Font.Weight {
+            summary.kind == .definite ? .semibold : .medium
+        }
+
+        private var iconOpacity: Double {
+            switch summary.kind {
+            case .definite: return 1.0
+            case .synonym, .pattern: return 1.0
+            case .ambiguous, .fuzzy: return 0.8
+            }
+        }
+
+        private var iconFrameSize: CGFloat {
+            summary.kind == .definite ? 26 : 22
+        }
+
+        private var backgroundOpacity: Double {
+            summary.kind == .definite ? 0.20 : 0.15
+        }
+
+        private var textWeight: Font.Weight {
+            switch summary.kind {
+            case .definite: return .bold
+            case .synonym, .pattern: return .semibold
+            case .ambiguous, .fuzzy: return .regular
+            }
+        }
+
+        private var cardBackgroundOpacity: Double {
+            summary.kind == .definite ? 0.18 : 0.10
+        }
+
+        private var borderOpacity: Double {
+            switch summary.kind {
+            case .definite: return 0.5
+            case .synonym, .pattern: return 0.4
+            case .ambiguous, .fuzzy: return 0.3
+            }
+        }
+
+        private var borderWidth: CGFloat {
+            summary.kind == .definite ? 2.0 : 1.0
+        }
+
+        private var scaleEffect: CGFloat {
+            summary.kind == .definite ? 1.0 : 1.0
         }
 
         private var icon: String {
