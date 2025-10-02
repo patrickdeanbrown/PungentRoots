@@ -1,57 +1,54 @@
 import SwiftUI
 import os
-#if os(iOS)
-import UIKit
-#endif
 
 struct ContentView: View {
     @EnvironmentObject private var appEnvironment: AppEnvironment
 
+    @StateObject private var captureController = LiveCaptureController()
     @State private var normalizedPreview: String = ""
     @State private var detectionResult: DetectionResult?
+    @State private var recognizedItems: [LiveCaptureController.RecognizedPayload.Item] = []
+    @State private var capturedImage: UIImage?
+    @State private var highlightedBoxes: [DetectionOverlay] = []
     @State private var isProcessing = false
     @State private var isShowingFullText = false
-#if os(iOS)
-    @State private var isShowingDocumentScanner = false
-    @State private var hasAutoPresentedCamera = false
-#endif
     @State private var isShowingSettings = false
-    @State private var errorMessage: String?
+    @State private var isShowingReportIssue = false
+    @State private var interfaceError: String?
 
     private let logger = Logger(subsystem: "co.ouchieco.PungentRoots", category: "ScanFlow")
 
+    @AppStorage("retakeButtonAlignment") private var retakeAlignmentRaw: String = RetakeButtonAlignment.trailing.rawValue
+
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 20) {
+                    cameraModule
                     resultCard
-                    primaryActions
-                    guidanceCard
+                    guidanceLink
                 }
-                .padding(.vertical, 32)
+                .padding(.vertical, 20)
                 .padding(.horizontal)
-                .frame(maxWidth: .infinity)
             }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("PungentRoots")
+            .background(
+                LinearGradient(
+                    gradient: Gradient(colors: [Color(.systemGray6), Color(.systemBackground)]),
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
+            )
             .toolbar { toolbarContent }
             .alert("Error", isPresented: Binding(
-                get: { errorMessage != nil },
-                set: { if !$0 { errorMessage = nil } }
+                get: { interfaceError != nil },
+                set: { if !$0 { interfaceError = nil } }
             )) {
-                Button("OK", role: .cancel) { errorMessage = nil }
+                Button("OK", role: .cancel) { interfaceError = nil }
             } message: {
-                Text(errorMessage ?? "")
+                Text(interfaceError ?? "")
             }
         }
-#if os(iOS)
-        .sheet(isPresented: $isShowingDocumentScanner) {
-            DocumentCameraView { result in
-                handleDocumentCamera(result: result)
-            }
-        }
-        .onAppear(perform: presentCameraIfNeeded)
-#endif
         .sheet(isPresented: $isShowingSettings) {
             NavigationStack {
                 SettingsView()
@@ -62,74 +59,253 @@ struct ContentView: View {
                     }
             }
         }
+        .sheet(isPresented: $isShowingReportIssue) {
+            if let result = detectionResult {
+                ReportIssueView(
+                    capturedImage: capturedImage,
+                    detectionResult: result,
+                    normalizedText: normalizedPreview
+                )
+            }
+        }
+        .onAppear { configureCaptureController() }
+        .onDisappear { captureController.stop() }
+        .onReceive(captureController.$state) { state in
+            if case let .error(message) = state {
+                interfaceError = message
+            }
+        }
     }
+
+    private var cameraModule: some View {
+        VStack(spacing: 12) {
+            cameraPreviewContent
+        }
+    }
+
+    @ViewBuilder
+    private var cameraPreviewContent: some View {
+#if os(iOS)
+        ZStack {
+            GeometryReader { proxy in
+                LiveCameraPreview(controller: captureController)
+                    .frame(height: proxy.size.height)
+                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .overlay(alignmentGuides)
+                    .overlay(statusBadgeOverlay, alignment: .topLeading)
+                    .overlay(retakeButtonOverlay, alignment: retakeAlignment == .leading ? .bottomLeading : .bottomTrailing)
+            }
+            .frame(height: 340)
+            if case .error = captureController.state {
+                errorOverlay
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, -16)
+#else
+        Text("Camera preview is available on iOS devices.")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+#endif
+    }
+
+#if os(iOS)
+    private var alignmentGuides: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Color.white.opacity(0.25), lineWidth: 1)
+            VStack {
+                Spacer()
+                Rectangle()
+                    .fill(Color.white.opacity(0.18))
+                    .frame(height: 1)
+                Spacer()
+            }
+            HStack {
+                Spacer()
+                Rectangle()
+                    .fill(Color.white.opacity(0.18))
+                    .frame(width: 1)
+                Spacer()
+            }
+        }
+    }
+
+    private var statusBadgeOverlay: some View {
+        HStack {
+            statusBadge
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+    }
+
+    @ViewBuilder
+    private var retakeButtonOverlay: some View {
+        if shouldShowRetakeButton {
+            retakeButton
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
+        }
+    }
+
+    @ViewBuilder
+    private var statusBadge: some View {
+        let descriptor = statusDescriptor
+        let stateColor = descriptor.color
+
+        HStack(spacing: 8) {
+            // Animated status indicator
+            if captureController.state == .scanning || captureController.state == .processing {
+                Circle()
+                    .fill(stateColor)
+                    .frame(width: 6, height: 6)
+                    .overlay(
+                        Circle()
+                            .fill(stateColor.opacity(0.3))
+                            .scaleEffect(1.8)
+                    )
+                    .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: captureController.state)
+            }
+
+            Label(descriptor.text, systemImage: descriptor.icon)
+                .font(.footnote.weight(.semibold))
+                .symbolEffect(.pulse, options: .repeating, value: captureController.state == .processing)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .foregroundStyle(.white)
+        .background(
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color.black.opacity(0.65),
+                    Color.black.opacity(0.45)
+                ]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: Capsule()
+        )
+        .shadow(color: stateColor.opacity(0.3), radius: 8, x: 0, y: 2)
+    }
+
+    private var statusDescriptor: (text: String, icon: String, color: Color) {
+        // When scanning, show readiness-based feedback
+        if captureController.state == .scanning {
+            switch captureController.readiness {
+            case .none:
+                let descriptor = captureController.state.descriptor
+                return (descriptor.text, descriptor.icon, .blue)
+            case .tooFar:
+                return ("Move closer to label", "arrow.down.forward.and.arrow.up.backward", .orange)
+            case .almostReady:
+                return ("Almost ready - hold steady", "camera.metering.center.weighted", .yellow)
+            case .ready:
+                return ("Capturing now…", "checkmark.circle", .green)
+            }
+        }
+
+        // Otherwise, use default state-based descriptor
+        let descriptor = captureController.state.descriptor
+        let color = statusColor(for: captureController.state)
+        return (descriptor.text, descriptor.icon, color)
+    }
+
+    private func statusColor(for state: LiveCaptureController.State) -> Color {
+        switch state {
+        case .idle, .preparing:
+            return .gray
+        case .scanning:
+            return .blue
+        case .processing:
+            return .orange
+        case .paused:
+            return .green
+        case .error:
+            return .red
+        }
+    }
+
+    private var retakeButton: some View {
+        Button(action: rescan) {
+            Image(systemName: "camera.rotate")
+                .imageScale(.medium)
+                .padding(12)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(Color.accentColor)
+        .clipShape(Circle())
+        .accessibilityLabel("Retake scan")
+    }
+
+    private var errorOverlay: some View {
+        VStack(spacing: 12) {
+            Label("Camera unavailable", systemImage: "exclamationmark.triangle.fill")
+                .font(.footnote.weight(.semibold))
+            Button {
+                captureController.resumeScanning()
+            } label: {
+                Label("Try Again", systemImage: "arrow.clockwise")
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.accentColor)
+        }
+        .padding(24)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private var shouldShowRetakeButton: Bool {
+        // Only show retake button when we have results to retake
+        guard detectionResult != nil else { return false }
+
+        switch captureController.state {
+        case .processing:
+            return false
+        case .error, .paused:
+            return true
+        default:
+            return true
+        }
+    }
+
+#endif
 
     private var resultCard: some View {
         Group {
             if isProcessing {
                 card {
-                    HStack(spacing: 12) {
-                        ProgressView()
-                        Text("Analyzing…")
-                            .font(.body)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    ProcessingStateView()
                 }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             } else if let result = detectionResult, !normalizedPreview.isEmpty {
                 card {
-                    DetectionResultView(normalizedText: normalizedPreview, result: result, isShowingFullText: $isShowingFullText)
+                    DetectionResultView(
+                        normalizedText: normalizedPreview,
+                        result: result,
+                        capturedImage: capturedImage,
+                        detectionBoxes: highlightedBoxes,
+                        isShowingFullText: $isShowingFullText,
+                        onRescan: rescan,
+                        onReportIssue: { isShowingReportIssue = true }
+                    )
                 }
+                .transition(.asymmetric(
+                    insertion: .move(edge: .bottom).combined(with: .opacity),
+                    removal: .move(edge: .leading).combined(with: .opacity)
+                ))
             } else {
-                card {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Ready to scan")
-                            .font(.headline)
-                        Text("We’ll highlight any pungent roots the moment the label is captured.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                EmptyView()
             }
         }
+        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: isProcessing)
+        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: detectionResult?.verdict)
     }
 
-    private var primaryActions: some View {
-        VStack(spacing: 12) {
-#if os(iOS)
-            Button {
-                logger.info("scan_button_tapped")
-                isShowingDocumentScanner = true
-            } label: {
-                Label("Scan Ingredients", systemImage: "camera.viewfinder")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(isProcessing)
-#else
-            Text("Scanning is available on iOS devices.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-#endif
-            Text("Hold the packaging steady until the text is sharp, then rescan whenever ingredients change.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private var guidanceCard: some View {
-        card {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Tips for fast rescans")
-                    .font(.headline)
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Move close to the ingredient panel so text fills the frame.", systemImage: "viewfinder")
-                    Label("Nothing is stored — every check is a fresh scan for the latest label.", systemImage: "arrow.clockwise")
-                }
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+    private var guidanceLink: some View {
+        Group {
+            if detectionResult == nil && !isProcessing {
+                EmptyStateView()
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
             }
         }
     }
@@ -143,62 +319,71 @@ struct ContentView: View {
         }
     }
 
+    private func configureCaptureController() {
 #if os(iOS)
-    private func presentCameraIfNeeded() {
-        guard hasAutoPresentedCamera == false else { return }
-        hasAutoPresentedCamera = true
-        logger.info("auto_present_camera")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
-            guard isProcessing == false else { return }
-            isShowingDocumentScanner = true
+        // Start camera asynchronously to avoid blocking main thread
+        Task { @MainActor in
+            captureController.setHandlers(
+                onCapture: { payload in
+                    handleRecognizedText(payload)
+                },
+                onError: { message in
+                    interfaceError = message
+                }
+            )
+
+            // Defer camera start to next run loop to prevent blocking
+            DispatchQueue.main.async {
+                captureController.start()
+            }
         }
+#endif
     }
 
-    private func handleDocumentCamera(result: Result<CGImage, Swift.Error>) {
+    private func handleRecognizedText(_ payload: LiveCaptureController.RecognizedPayload) {
+        logger.info("auto_capture_recognized lines=\(payload.items.count, privacy: .public)")
+
+        // Haptic feedback on capture
+        #if os(iOS)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        #endif
+
         Task { @MainActor in
             isProcessing = true
             detectionResult = nil
             normalizedPreview = ""
             isShowingFullText = false
-        }
-        Task {
-            do {
-                let cgImage = try result.get()
-                let recognized = try await appEnvironment.textAcquisition.recognize(from: .cgImage(cgImage))
-                await MainActor.run {
-                    normalizedPreview = recognized.normalized
-                    completeAnalysis(normalized: recognized.normalized)
-                }
-            } catch {
-                await MainActor.run {
-                    if let acquisitionError = error as? TextAcquisitionService.Error {
-                        switch acquisitionError {
-                        case .noTextFound:
-                            errorMessage = "No text detected. Hold closer to the label and try again."
-                        case .recognitionFailed(let underlying):
-                            errorMessage = "OCR failed: \(underlying.localizedDescription)."
-                        case .unsupportedImage:
-                            errorMessage = "Unsupported image format for OCR."
-                        }
-                    } else {
-                        errorMessage = "Unable to read text from scan."
-                    }
-                    isProcessing = false
-                }
-            }
+            highlightedBoxes = []
+            recognizedItems = payload.items
+            capturedImage = payload.capturedImage
+            let recognized = appEnvironment.textAcquisition.makeRecognizedText(from: payload.items.map { $0.text })
+            normalizedPreview = recognized.normalized
+            completeAnalysis(normalized: recognized.normalized)
+            isProcessing = false
+            captureController.finishProcessing()
         }
     }
-#endif
 
     @MainActor
     private func completeAnalysis(normalized: String) {
         let analysis = appEnvironment.analyze(normalized)
         detectionResult = analysis.result
         normalizedPreview = analysis.normalized
-        isProcessing = false
-        isShowingFullText = false
+        updateHighlights(for: analysis.result)
         announceSummary(for: analysis.result)
-        logger.info("analysis_completed matches=\(analysis.result.matches.count, privacy: .public)")
+
+        // Haptic feedback based on verdict
+        #if os(iOS)
+        let feedback = UINotificationFeedbackGenerator()
+        switch analysis.result.verdict {
+        case .safe:
+            feedback.notificationOccurred(.success)
+        case .needsReview:
+            feedback.notificationOccurred(.warning)
+        case .contains:
+            feedback.notificationOccurred(.error)
+        }
+        #endif
     }
 
     private func announceSummary(for result: DetectionResult) {
@@ -216,14 +401,86 @@ struct ContentView: View {
 #endif
     }
 
+    private func rescan() {
+        logger.info("auto_capture_rescan")
+
+        // Haptic feedback on button tap
+        #if os(iOS)
+        UISelectionFeedbackGenerator().selectionChanged()
+        #endif
+
+        normalizedPreview = ""
+        detectionResult = nil
+        isShowingFullText = false
+        isProcessing = false
+        highlightedBoxes = []
+        recognizedItems = []
+        capturedImage = nil
+#if os(iOS)
+        captureController.resumeScanning()
+#endif
+    }
+
+    private func updateHighlights(for result: DetectionResult) {
+        logger.debug("updateHighlights: recognizedItems=\(self.recognizedItems.count) matches=\(result.matches.count)")
+
+        var severityMap: [String: DetectionOverlay.DetectionSeverity] = [:]
+        for match in result.matches {
+            let key = match.term.lowercased()
+            let severity = DetectionOverlay.DetectionSeverity(kind: match.kind)
+            if let existing = severityMap[key], existing.priority >= severity.priority {
+                continue
+            }
+            severityMap[key] = severity
+        }
+
+        guard !severityMap.isEmpty else {
+            logger.debug("updateHighlights: severityMap is empty, clearing boxes")
+            highlightedBoxes = []
+            return
+        }
+
+        let orderedMap = severityMap.sorted { lhs, rhs in
+            lhs.value.priority > rhs.value.priority
+        }
+
+        var overlays: [DetectionOverlay] = []
+        for item in recognizedItems {
+            let lowered = item.text.lowercased()
+            logger.debug("updateHighlights: checking item text='\(lowered)'")
+            if let match = orderedMap.first(where: { lowered.contains($0.key) }) {
+                let severity = match.value
+                let matchedKey = match.key
+                logger.debug("updateHighlights: MATCHED '\(lowered)' with key '\(matchedKey)'")
+                overlays.append(DetectionOverlay(rect: item.boundingBox, severity: severity))
+            }
+        }
+        logger.debug("updateHighlights: created \(overlays.count) overlay boxes")
+        highlightedBoxes = overlays
+    }
+
     private func card<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         content()
-            .padding(20)
+            .padding(22)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color(.secondarySystemBackground))
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [Color(.systemBackground), Color(.systemGray6)]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .shadow(color: Color.black.opacity(0.05), radius: 18, x: 0, y: 8)
             )
+    }
+}
+
+
+extension ContentView {
+    var retakeAlignment: RetakeButtonAlignment {
+        RetakeButtonAlignment(rawValue: retakeAlignmentRaw) ?? .trailing
     }
 }
 
@@ -246,3 +503,4 @@ private struct ContentViewPreviewHarness: View {
 #Preview {
     ContentViewPreviewHarness()
 }
+
