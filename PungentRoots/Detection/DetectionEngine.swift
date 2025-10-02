@@ -26,9 +26,27 @@ struct DetectionEngine {
         var strongScore = 0.0
         var ambiguousScore = 0.0
         var hasDefinite = false
+        var matchedRanges: [(range: Range<Int>, priority: Int)] = []
+
+        func rangeOverlaps(_ newRange: Range<Int>) -> Bool {
+            for existing in matchedRanges {
+                // Check if ranges overlap
+                if newRange.overlaps(existing.range) {
+                    return true
+                }
+            }
+            return false
+        }
 
         func addMatch(_ match: Match, scoreContribution: Double, isDefinite: Bool = false, isAmbiguous: Bool = false) {
+            // Skip if this range already matched (prevents double-counting)
+            if rangeOverlaps(match.range) {
+                return
+            }
+
             matches.append(match)
+            matchedRanges.append((range: match.range, priority: match.kind.priority))
+
             if isDefinite {
                 hasDefinite = true
             }

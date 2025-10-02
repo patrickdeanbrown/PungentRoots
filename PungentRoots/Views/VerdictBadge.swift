@@ -3,6 +3,7 @@ import SwiftUI
 /// Displays a prominent verdict badge indicating the safety status of scanned ingredients
 struct VerdictBadge: View {
     let verdict: Verdict
+    @State private var isVisible = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -36,9 +37,16 @@ struct VerdictBadge: View {
                 .stroke(color.opacity(0.3), lineWidth: 1.5)
         )
         .shadow(color: color.opacity(0.15), radius: 8, x: 0, y: 4)
+        .scaleEffect(isVisible ? 1.0 : 0.8)
+        .opacity(isVisible ? 1.0 : 0.0)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityAddTraits(.isHeader)
+        .onAppear {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                isVisible = true
+            }
+        }
     }
 
     private var icon: String {

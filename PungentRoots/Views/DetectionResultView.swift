@@ -9,18 +9,32 @@ struct DetectionResultView: View {
     let onRescan: () -> Void
     let onReportIssue: () -> Void
 
+    @State private var showingHighInfo = false
+    @State private var showingMediumInfo = false
+    @State private var showingReviewInfo = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            // Verdict badge at top
+            // Verdict badge at top with animation
             VerdictBadge(verdict: result.verdict)
+                .transition(.scale.combined(with: .opacity))
+                .animation(.spring(response: 0.5, dampingFraction: 0.7), value: result.verdict)
 
             if let image = capturedImage, !detectionBoxes.isEmpty {
                 capturedImageSection(image: image)
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
+
             matchesSection
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+
             disclosureSection
+                .transition(.opacity)
+
             actionButtonsSection
+                .transition(.move(edge: .bottom).combined(with: .opacity))
         }
+        .animation(.easeOut(duration: 0.3), value: result.matches.count)
     }
 
     @ViewBuilder
@@ -43,23 +57,77 @@ struct DetectionResultView: View {
                 )
                 .accessibilityHint("Tap to view full size")
 
-            // Color legend
-            HStack(spacing: 16) {
-                legendItem(color: .red, label: "High")
-                legendItem(color: .orange, label: "Medium")
-                legendItem(color: .yellow, label: "Review")
+            // Interactive color legend
+            HStack(spacing: 12) {
+                interactiveLegendItem(
+                    color: Color(red: 0.86, green: 0.18, blue: 0.24),
+                    label: "High",
+                    description: "Definite pungent roots detected",
+                    examples: "Onion, garlic, shallot",
+                    isShowing: $showingHighInfo
+                )
+
+                interactiveLegendItem(
+                    color: Color(red: 0.96, green: 0.55, blue: 0.19),
+                    label: "Medium",
+                    description: "Likely matches or synonyms",
+                    examples: "Onion powder, garlic extract",
+                    isShowing: $showingMediumInfo
+                )
+
+                interactiveLegendItem(
+                    color: Color(red: 0.98, green: 0.82, blue: 0.24),
+                    label: "Review",
+                    description: "Ambiguous or possible OCR errors",
+                    examples: "Stock, garilc (typo)",
+                    isShowing: $showingReviewInfo
+                )
             }
             .font(.caption2)
         }
     }
 
-    private func legendItem(color: Color, label: String) -> some View {
-        HStack(spacing: 4) {
-            Circle()
-                .fill(color)
-                .frame(width: 8, height: 8)
-            Text(label)
-                .foregroundStyle(.secondary)
+    private func interactiveLegendItem(color: Color, label: String, description: String, examples: String, isShowing: Binding<Bool>) -> some View {
+        Button {
+            isShowing.wrappedValue.toggle()
+        } label: {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 10, height: 10)
+                Text(label)
+                    .foregroundStyle(.secondary)
+                Image(systemName: "info.circle.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(color.opacity(0.6))
+            }
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: isShowing) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(color)
+                        .frame(width: 16, height: 16)
+                    Text(label + " Severity")
+                        .font(.headline)
+                }
+
+                Text(description)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Examples:")
+                        .font(.caption.weight(.semibold))
+                    Text(examples)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: 280)
+            .presentationCompactAdaptation(.popover)
         }
     }
 
@@ -75,6 +143,7 @@ struct DetectionResultView: View {
                     .foregroundStyle(Color.accentColor)
                 AdaptiveBadgeGrid(items: uniqueMatches) { summary in
                     MatchBadge(summary: summary)
+                        .transition(.scale.combined(with: .opacity))
                 }
             }
         }
