@@ -31,8 +31,16 @@ final class LiveCaptureController: NSObject, ObservableObject {
         }
     }
 
+    enum ReadinessLevel: Equatable {
+        case none          // Not scanning or no feedback available
+        case tooFar        // Not enough text detected
+        case almostReady   // Text detected but quality not high enough
+        case ready         // All criteria met, will capture soon
+    }
+
     @Published private(set) var state: State = .idle
     @Published private(set) var zoomFactor: CGFloat = 1.0
+    @Published private(set) var readiness: ReadinessLevel = .none
 
     var supportsZoom: Bool { maxZoomFactor > 1.01 }
     var zoomRange: ClosedRange<CGFloat> { 1.0...maxZoomFactor }
@@ -99,6 +107,7 @@ final class LiveCaptureController: NSObject, ObservableObject {
                 self.session.startRunning()
             }
             self.scanningEnabled = true
+            self.updateReadiness(.none)
             self.updateState(.scanning)
         }
     }
@@ -197,7 +206,23 @@ final class LiveCaptureController: NSObject, ObservableObject {
             self.isConfigured = true
             self.scanningEnabled = true
             self.frameThrottle = CACurrentMediaTime()
+
+            // Start camera session with timeout protection
+            let startTime = Date()
             session.startRunning()
+            let duration = Date().timeIntervalSince(startTime)
+
+            if duration > 5.0 {
+                print("⚠️ Camera startup took \(duration)s - consider reporting this issue")
+            }
+
+            // Verify session actually started
+            if !session.isRunning {
+                print("❌ Camera session failed to start")
+                self.reportError("Camera failed to start. Please try restarting the app.")
+                return
+            }
+
             self.updateState(.scanning)
         }
     }
@@ -274,6 +299,12 @@ final class LiveCaptureController: NSObject, ObservableObject {
         }
     }
 
+    private func updateReadiness(_ level: ReadinessLevel) {
+        DispatchQueue.main.async {
+            self.readiness = level
+        }
+    }
+
     private func reportError(_ message: String) {
         scanningEnabled = false
         updateState(.error(message))
@@ -296,16 +327,48 @@ extension LiveCaptureController: AVCaptureVideoDataOutputSampleBufferDelegate {
         let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .right, options: [:])
         do {
             try handler.perform([request])
-            guard let observations = request.results, observations.isEmpty == false else { return }
+            guard let observations = request.results, observations.isEmpty == false else {
+                updateReadiness(.tooFar)
+                return
+            }
+
+            // Track confidence for quality check
+            var totalConfidence: Float = 0
+            var confidenceCount: Float = 0
+
             let items: [RecognizedPayload.Item] = observations.compactMap { observation in
                 guard let candidate = observation.topCandidates(1).first, candidate.confidence >= ocrConfig.confidenceThreshold else { return nil }
                 let trimmed = candidate.string.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard trimmed.isEmpty == false else { return nil }
                 let normalizedBox = normalizedBoundingBox(for: observation.boundingBox)
+
+                // Accumulate confidence for average calculation
+                totalConfidence += candidate.confidence
+                confidenceCount += 1
+
                 return RecognizedPayload.Item(text: trimmed, boundingBox: normalizedBox)
             }
+
+            // Check capture quality criteria progressively
+            guard items.count >= ocrConfig.minimumObservationCount else {
+                updateReadiness(.tooFar)
+                return
+            }
+
             let combined = items.map { $0.text }.joined(separator: " ")
-            guard items.isEmpty == false, combined.count >= ocrConfig.minimumCaptureLength else { return }
+            guard combined.count >= ocrConfig.minimumCaptureLength else {
+                updateReadiness(.almostReady)
+                return
+            }
+
+            let averageConfidence = confidenceCount > 0 ? totalConfidence / confidenceCount : 0
+            guard averageConfidence >= ocrConfig.minimumAverageConfidence else {
+                updateReadiness(.almostReady)
+                return
+            }
+
+            // All criteria met - ready to capture
+            updateReadiness(.ready)
 
             // Capture the frame as an image for display in results
             let capturedImage = captureImage(from: pixelBuffer)

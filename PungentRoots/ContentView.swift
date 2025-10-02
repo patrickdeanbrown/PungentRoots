@@ -59,6 +59,15 @@ struct ContentView: View {
                     }
             }
         }
+        .sheet(isPresented: $isShowingReportIssue) {
+            if let result = detectionResult {
+                ReportIssueView(
+                    capturedImage: capturedImage,
+                    detectionResult: result,
+                    normalizedText: normalizedPreview
+                )
+            }
+        }
         .onAppear { configureCaptureController() }
         .onDisappear { captureController.stop() }
         .onReceive(captureController.$state) { state in
@@ -83,10 +92,8 @@ struct ContentView: View {
                     .frame(height: proxy.size.height)
                     .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                     .overlay(alignmentGuides)
-                    .overlay(statusOverlay, alignment: .topLeading)
-                    .overlay(
-                        DetectionOverlayView(boxes: highlightedBoxes, size: proxy.size)
-                    )
+                    .overlay(statusBadgeOverlay, alignment: .topLeading)
+                    .overlay(retakeButtonOverlay, alignment: retakeAlignment == .leading ? .bottomLeading : .bottomTrailing)
             }
             .frame(height: 340)
             if case .error = captureController.state {
@@ -124,36 +131,99 @@ struct ContentView: View {
         }
     }
 
-    private var statusOverlay: some View {
-        HStack(spacing: 12) {
-            let descriptor = captureController.state.descriptor
-            Label(descriptor.text, systemImage: descriptor.icon)
-                .font(.footnote.weight(.semibold))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .foregroundStyle(.white)
-                .background(
-                    LinearGradient(
-                        gradient: Gradient(colors: [Color.black.opacity(0.55), Color.black.opacity(0.35)]),
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    in: Capsule()
-                )
+    private var statusBadgeOverlay: some View {
+        HStack {
+            statusBadge
             Spacer()
-            if shouldShowRetakeButton {
-                let alignment = retakeAlignment
-                if alignment == .leading {
-                    retakeButton
-                    Spacer(minLength: 0)
-                } else {
-                    Spacer(minLength: 0)
-                    retakeButton
-                }
-            }
         }
         .padding(.horizontal, 16)
         .padding(.top, 16)
+    }
+
+    @ViewBuilder
+    private var retakeButtonOverlay: some View {
+        if shouldShowRetakeButton {
+            retakeButton
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
+        }
+    }
+
+    @ViewBuilder
+    private var statusBadge: some View {
+        let descriptor = statusDescriptor
+        let stateColor = descriptor.color
+
+        HStack(spacing: 8) {
+            // Animated status indicator
+            if captureController.state == .scanning || captureController.state == .processing {
+                Circle()
+                    .fill(stateColor)
+                    .frame(width: 6, height: 6)
+                    .overlay(
+                        Circle()
+                            .fill(stateColor.opacity(0.3))
+                            .scaleEffect(1.8)
+                    )
+                    .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: captureController.state)
+            }
+
+            Label(descriptor.text, systemImage: descriptor.icon)
+                .font(.footnote.weight(.semibold))
+                .symbolEffect(.pulse, options: .repeating, value: captureController.state == .processing)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .foregroundStyle(.white)
+        .background(
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color.black.opacity(0.65),
+                    Color.black.opacity(0.45)
+                ]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: Capsule()
+        )
+        .shadow(color: stateColor.opacity(0.3), radius: 8, x: 0, y: 2)
+    }
+
+    private var statusDescriptor: (text: String, icon: String, color: Color) {
+        // When scanning, show readiness-based feedback
+        if captureController.state == .scanning {
+            switch captureController.readiness {
+            case .none:
+                let descriptor = captureController.state.descriptor
+                return (descriptor.text, descriptor.icon, .blue)
+            case .tooFar:
+                return ("Move closer to label", "arrow.down.forward.and.arrow.up.backward", .orange)
+            case .almostReady:
+                return ("Almost ready - hold steady", "camera.metering.center.weighted", .yellow)
+            case .ready:
+                return ("Capturing now…", "checkmark.circle", .green)
+            }
+        }
+
+        // Otherwise, use default state-based descriptor
+        let descriptor = captureController.state.descriptor
+        let color = statusColor(for: captureController.state)
+        return (descriptor.text, descriptor.icon, color)
+    }
+
+    private func statusColor(for state: LiveCaptureController.State) -> Color {
+        switch state {
+        case .idle, .preparing:
+            return .gray
+        case .scanning:
+            return .blue
+        case .processing:
+            return .orange
+        case .paused:
+            return .green
+        case .error:
+            return .red
+        }
     }
 
     private var retakeButton: some View {
@@ -185,15 +255,16 @@ struct ContentView: View {
     }
 
     private var shouldShowRetakeButton: Bool {
+        // Only show retake button when we have results to retake
+        guard detectionResult != nil else { return false }
+
         switch captureController.state {
         case .processing:
             return false
-        case .error:
-            return true
-        case .paused:
+        case .error, .paused:
             return true
         default:
-            return detectionResult != nil
+            return true
         }
     }
 
@@ -205,6 +276,7 @@ struct ContentView: View {
                 card {
                     ProcessingStateView()
                 }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             } else if let result = detectionResult, !normalizedPreview.isEmpty {
                 card {
                     DetectionResultView(
@@ -217,10 +289,16 @@ struct ContentView: View {
                         onReportIssue: { isShowingReportIssue = true }
                     )
                 }
+                .transition(.asymmetric(
+                    insertion: .move(edge: .bottom).combined(with: .opacity),
+                    removal: .move(edge: .leading).combined(with: .opacity)
+                ))
             } else {
                 EmptyView()
             }
         }
+        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: isProcessing)
+        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: detectionResult?.verdict)
     }
 
     private var guidanceLink: some View {
@@ -243,15 +321,22 @@ struct ContentView: View {
 
     private func configureCaptureController() {
 #if os(iOS)
-        captureController.setHandlers(
-            onCapture: { payload in
-                handleRecognizedText(payload)
-            },
-            onError: { message in
-                interfaceError = message
+        // Start camera asynchronously to avoid blocking main thread
+        Task { @MainActor in
+            captureController.setHandlers(
+                onCapture: { payload in
+                    handleRecognizedText(payload)
+                },
+                onError: { message in
+                    interfaceError = message
+                }
+            )
+
+            // Defer camera start to next run loop to prevent blocking
+            DispatchQueue.main.async {
+                captureController.start()
             }
-        )
-        captureController.start()
+        }
 #endif
     }
 
@@ -337,6 +422,8 @@ struct ContentView: View {
     }
 
     private func updateHighlights(for result: DetectionResult) {
+        logger.debug("updateHighlights: recognizedItems=\(self.recognizedItems.count) matches=\(result.matches.count)")
+
         var severityMap: [String: DetectionOverlay.DetectionSeverity] = [:]
         for match in result.matches {
             let key = match.term.lowercased()
@@ -348,6 +435,7 @@ struct ContentView: View {
         }
 
         guard !severityMap.isEmpty else {
+            logger.debug("updateHighlights: severityMap is empty, clearing boxes")
             highlightedBoxes = []
             return
         }
@@ -359,11 +447,15 @@ struct ContentView: View {
         var overlays: [DetectionOverlay] = []
         for item in recognizedItems {
             let lowered = item.text.lowercased()
+            logger.debug("updateHighlights: checking item text='\(lowered)'")
             if let match = orderedMap.first(where: { lowered.contains($0.key) }) {
                 let severity = match.value
+                let matchedKey = match.key
+                logger.debug("updateHighlights: MATCHED '\(lowered)' with key '\(matchedKey)'")
                 overlays.append(DetectionOverlay(rect: item.boundingBox, severity: severity))
             }
         }
+        logger.debug("updateHighlights: created \(overlays.count) overlay boxes")
         highlightedBoxes = overlays
     }
 

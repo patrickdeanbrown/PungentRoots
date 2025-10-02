@@ -25,6 +25,12 @@ struct OCRConfiguration {
     /// Minimum character count for valid text capture
     let minimumCaptureLength: Int
 
+    /// Minimum number of text observations (lines) for capture
+    let minimumObservationCount: Int
+
+    /// Minimum average confidence across all observations (0.0-1.0)
+    let minimumAverageConfidence: Float
+
     /// Throttle interval between frame captures (in seconds)
     let frameThrottleInterval: TimeInterval
 
@@ -36,7 +42,9 @@ struct OCRConfiguration {
         confidenceThreshold: 0.45,
         recognitionLanguages: ["en-US", "en-GB"],
         revision: 3, // VNRecognizeTextRequestRevision3
-        minimumCaptureLength: 12,
+        minimumCaptureLength: 20,  // Increased from 12 to require more text
+        minimumObservationCount: 5, // Require at least 5 lines of text
+        minimumAverageConfidence: 0.65, // Require 65% average confidence
         frameThrottleInterval: 0.7
     )
 
@@ -48,7 +56,9 @@ struct OCRConfiguration {
         confidenceThreshold: 0.5,
         recognitionLanguages: ["en-US"],
         revision: 3,
-        minimumCaptureLength: 10,
+        minimumCaptureLength: 15,
+        minimumObservationCount: 4,
+        minimumAverageConfidence: 0.6,
         frameThrottleInterval: 0.5
     )
 }
