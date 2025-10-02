@@ -52,4 +52,34 @@ struct DetectionEngineTests {
         #expect(analysis.result.matches.allSatisfy { $0.kind != .fuzzy })
         #expect(analysis.result.verdict == .needsReview)
     }
+
+    @Test("Calcium does not trigger allium match")
+    func calciumIsIgnored() {
+        let engine = DetectionEngine(dictionary: dictionary)
+        let sample = "Additives: calcium carbonate, vitamins"
+        let analysis = engine.analyze(rawText: sample)
+
+        #expect(analysis.result.matches.isEmpty)
+        #expect(analysis.result.verdict == .safe)
+    }
+
+    @Test("Plain oil is not flagged")
+    func oilIsIgnored() {
+        let engine = DetectionEngine(dictionary: dictionary)
+        let sample = "Ingredients: expeller pressed canola oil, sea salt"
+        let analysis = engine.analyze(rawText: sample)
+
+        #expect(analysis.result.matches.isEmpty)
+        #expect(analysis.result.verdict == .safe)
+    }
+
+    @Test("Natural flavors remain unflagged")
+    func naturalFlavorsIgnored() {
+        let engine = DetectionEngine(dictionary: dictionary)
+        let sample = "Ingredients: carbonated water, natural flavors"
+        let analysis = engine.analyze(rawText: sample)
+
+        #expect(analysis.result.matches.isEmpty)
+        #expect(analysis.result.verdict == .safe)
+    }
 }
