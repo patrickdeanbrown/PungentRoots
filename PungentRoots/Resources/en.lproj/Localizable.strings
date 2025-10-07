@@ -1,0 +1,53 @@
+"scan.navigation.title" = "Scan Ingredients";
+"scan.status.move_closer" = "Move closer to label";
+"scan.status.almost_ready" = "Almost ready—hold steady";
+"scan.status.ready" = "Capturing now…";
+"scan.status.default_idle" = "Starting scanner…";
+"scan.status.default_preparing" = "Preparing scanner…";
+"scan.status.default_scanning" = "Hold steady for auto capture";
+"scan.status.default_processing" = "Analyzing frame…";
+"scan.status.default_paused" = "Capture complete";
+"scan.status.default_error" = "Scanner paused";
+"scan.status.accessibility.hint" = "Scanner status updates as capture progresses.";
+"scan.error.title" = "Scanner unavailable";
+"scan.error.retry" = "Try Again";
+"scan.retake.accessibility" = "Retake scan";
+"scan.retake.hint" = "Capture another image of the ingredient list.";
+"scan.summary.none" = "No pungent root matches detected.";
+"scan.summary.single" = "1 match detected. Review details.";
+"scan.summary.multiple" = "%d matches detected. Review details.";
+
+"common.done" = "Done";
+"common.info" = "Info";
+
+"settings.capture.heading" = "Capture";
+"settings.visionkit.toggle" = "VisionKit Auto Scanner";
+"settings.visionkit.description" = "Use Apple's Live Text pipeline when available for faster, on-device recognition.";
+"settings.visionkit.unsupported" = "VisionKit requires an A12 Bionic or newer device running iOS 16.";
+"settings.retake.title" = "Retake Button Position";
+"settings.retake.caption" = "Position at bottom corner for easy thumb access";
+"settings.retake.leading" = "Left";
+"settings.retake.trailing" = "Right";
+"settings.tips.title" = "Capture Tips";
+"settings.tips.fill_frame" = "Fill the frame with the ingredient list";
+"settings.tips.hold_steady" = "Hold steady while the camera focuses";
+"settings.tips.rescan" = "Rescan anytime to update results";
+
+"settings.privacy.heading" = "Privacy";
+"settings.privacy.on_device.title" = "All processing on-device";
+"settings.privacy.on_device.description" = "Camera access powers automatic captures. No photos or text leave your device.";
+
+"settings.dictionary.heading" = "Detection Dictionary";
+"settings.dictionary.version" = "Version";
+"settings.dictionary.coverage" = "Coverage";
+"settings.dictionary.coverage_value" = "50+ terms";
+"settings.dictionary.description" = "Detects onions, garlic, shallots, leeks, chives, scallions, ramps, and related alliums with synonyms and pattern matching.";
+
+"settings.support.heading" = "Support";
+"settings.support.report.title" = "Report Issues";
+"settings.support.report.description" = "Use the Report Issue button when you find incorrect detections.";
+"settings.support.fresh.title" = "Fresh Results";
+"settings.support.fresh.description" = "Scans are transient. Rescan for updated results with each label.";
+
+"settings.navigation.title" = "Info & Settings";
+"settings.header.tagline" = "Detect alliums in ingredients instantly";

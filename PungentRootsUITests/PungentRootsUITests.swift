@@ -38,4 +38,25 @@ final class PungentRootsUITests: XCTestCase {
             XCUIApplication().launch()
         }
     }
+
+    @MainActor
+    func testSettingsSupportsDynamicType() throws {
+        let app = XCUIApplication()
+        app.launchArguments.append(contentsOf: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibility3"])
+        app.launch()
+
+        app.buttons["Info"].tap()
+
+        let navBar = app.navigationBars["Info & Settings"]
+        XCTAssertTrue(navBar.waitForExistence(timeout: 3))
+
+        let toggle = app.switches.firstMatch
+        XCTAssertTrue(toggle.waitForExistence(timeout: 2))
+
+        let screenshot = XCUIScreen.main.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = "Settings-DynamicType-AX3"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
 }

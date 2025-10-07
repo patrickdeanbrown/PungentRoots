@@ -82,4 +82,18 @@ struct DetectionEngineTests {
         #expect(analysis.result.matches.isEmpty)
         #expect(analysis.result.verdict == .safe)
     }
+
+    @Test("Async analyzer matches synchronous detection results")
+    @MainActor
+    func asyncAnalyzerMatchesSync() async {
+        let environment = AppEnvironment(dictionary: dictionary)
+        let sample = "Ingredients: wheat flour, onion powder, salt"
+
+        let syncResult = environment.analyze(sample)
+        let asyncResult = await environment.analyzeAsync(sample)
+
+        #expect(asyncResult.normalized == syncResult.normalized)
+        #expect(asyncResult.result.matches == syncResult.result.matches)
+        #expect(asyncResult.result.verdict == syncResult.result.verdict)
+    }
 }

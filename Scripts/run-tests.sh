@@ -1,7 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-DEST="platform=iOS Simulator,OS=18.5,name=iPhone 16 Pro"
+# Allow overriding from the environment while defaulting to an available simulator.
+DEST="${DEST:-platform=iOS Simulator,OS=18.6,name=iPhone 16 Pro}"
 
 echo "Running tests on $DEST"
 xcodebuild test -scheme PungentRoots -destination "$DEST"
