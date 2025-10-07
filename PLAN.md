@@ -13,14 +13,14 @@
 - Tokenize text with NaturalLanguage to reduce custom parsing logic and improve resilience to edge cases like Unicode punctuation.[^nltagger]
 
 ## 3. MVP Scope Check
-- **Input:** Auto-capture through an `AVCaptureSession` tuned for ingredient labels, with a single rescan affordance for manual retries.
+- **Input:** Auto-capture defaults to VisionKit’s `DataScannerViewController` with a fallback `AVCaptureSession` pipeline for unsupported devices, plus a single rescan affordance for manual retries.
 - **Detection:** Normalize text, run deterministic matching (exact/synonym/pattern/fuzzy), and maintain internal scoring to inform guidance while surfacing match lists only.
 - **Output:** Inline match list with red/yellow severity, optional transcript toggle, and caméra tips encouraging fresh rescans (no persistent history).
 - **Persistence:** Keep captures ephemeral; explore opt-in history later if user demand returns.
 
 ## 4. Architecture Overview
 1. **Input Layer**
-   - Run a dedicated `LiveCaptureController` wrapping `AVCaptureSession`, `AVCaptureVideoDataOutput`, and Vision text recognition for automatic triggers.
+   - Route capture through `AutoCaptureController`, which prefers VisionKit’s `DataScannerViewController` and gracefully falls back to the legacy `LiveCaptureController` (AVFoundation + Vision) for unsupported hardware.
    - Provide pinch/slider zoom, macro-focused configuration, and optional rescan control once results are shown.
 2. **OCR & Normalization Service**
    - `TextAcquisitionService` orchestrates OCR tasks, returns normalized text with source metadata, and strips hyphen breaks, bullet characters, and problematic whitespace.
@@ -32,9 +32,9 @@
    - SwiftUI navigation stack: Home (actions + history) → Capture/Paste flows → Result detail. Derived view models expose immutable state to views, with mutation isolated to services.
 
 ## 5. Text Capture and OCR
-- Configure a reusable `VNRecognizeTextRequest` at startup, specifying `.accurate` recognition for document scans and enabling language correction to improve ingredient accuracy, with the option to fall back to `.fast` for degraded images.[^vision-ocr]
+- Prefer VisionKit’s Data Scanner for live text detection; configure the scanner to highlight guidance, limit captures to a single ingredient block, and surface readiness feedback in the UI.
+- When Data Scanner isn’t available, configure a reusable `VNRecognizeTextRequest` with `.accurate` recognition and language correction, falling back to `.fast` for degraded images.[^vision-ocr]
 - Populate `recognitionLanguages` with `Locale.Language("en-US")` initially and expose a setting stub for future locales; rely on `supportedRecognitionLanguages` to validate availability.[^vision-ocr]
-- Limit processing to the detected ingredient block (VisionKit’s pre-cropped output) or apply a lightweight rectangle detection before OCR to cut noise.
 - Run OCR on a background task; return results via `MainActor` isolation to satisfy Vision threading requirements and update UI state safely.
 
 ## 6. Text Normalization & Tokenization
@@ -47,6 +47,37 @@
 - Exact & synonym passes use regex with word boundaries; patterns handle suffixes like powder/salt/extract; ambiguous list triggers caution-tier matches; fuzzy pass applies Levenshtein distance thresholds for short vs. long tokens.
 - Accumulate scores by severity, cap ambiguous contributions, and derive verdict tiers (`safe` <0.3, `needsReview` <0.8, `contains` ≥0.8). Persist match notes for UI explanations.
 - Structure the engine for eventual replacements (e.g., Aho–Corasick) without changing the public API.
+
+## 8. UI Modernization Roadmap (Plan C)
+- **Audit & Baseline**
+  - Capture current camera module, result card, and settings layouts in light/dark with Dynamic Type XXL.
+  - Document spacing, typography, and accessibility gaps; track findings for follow-up.
+- **Visual Refresh**
+  - Replace custom gradients with `Material`/`GlassBackgroundStyle` and semantic system colors.
+  - Adopt `ViewThatFits`/adaptive stacks to accommodate compact vs. regular size classes.
+  - Update toolbar/navigation to large-title patterns with contextual trailing actions.
+- **Accessibility & Localization**
+  - Add descriptive accessibility labels, hints, and traits to overlays, retake controls, and status badges.
+  - Localize newly surfaced scanner guidance strings and regenerate `Localizable.strings`.
+  - Extend UI tests to cover Dynamic Type, VoiceOver focus, and refreshed snapshots.
+- **Validation**
+  - Smoke-test on simulator/device, verifying haptics and animations meet HIG guidance.
+  - Update README/AGENTS with refreshed UI descriptions and screenshots.
+
+## 9. Detection & Services Modernization (Plan D)
+- **Async Pipeline**
+  - Convert detection entrypoints to async using `Task` and cooperative cancellation between camera and detection layers.
+  - Maintain sync wrappers for backward compatibility while migrating tests.
+- **Instrumentation**
+  - Add `os.Logger` signposts for acquisition, normalization, and detection stages.
+  - Integrate `MetricKit` to capture latency and thermal metrics; surface dashboards for regression tracking.
+- **Text Processing Enhancements**
+  - Prototype `NaturalLanguage` tokenization; benchmark accuracy/performance against the regex pipeline.
+  - Externalize fuzzy thresholds to configuration for easier experimentation.
+- **Testing & QA**
+  - Expand `Testing` suites with async scenarios and additional fixtures.
+  - Document manual QA steps for detection latency/accuracy across sample labels.
+  - Enhance Scripts/run-tests.sh with optional async performance checks.
 
 ## 8. Data Model & Persistence
 - Implement the provided `Scan` model with `@Model`, apply `@Attribute(.unique)` to `id`, and preserve user verdict overrides by marking key fields as `.preserveValueOnDeletion` when appropriate.[^swiftdata-model]

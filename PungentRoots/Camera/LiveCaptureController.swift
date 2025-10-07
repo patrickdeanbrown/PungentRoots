@@ -460,6 +460,13 @@ final class LiveCaptureController: ObservableObject {
         case error(String)
     }
 
+    enum ReadinessLevel: Equatable {
+        case none
+        case tooFar
+        case almostReady
+        case ready
+    }
+
     struct RecognizedPayload {
         struct Item {
             let text: String
@@ -473,6 +480,7 @@ final class LiveCaptureController: ObservableObject {
     }
 
     @Published private(set) var state: State = .idle
+    @Published private(set) var readiness: ReadinessLevel = .none
     var supportsZoom: Bool { false }
     var zoomRange: ClosedRange<CGFloat> { 1.0...1.0 }
     var zoomFactor: CGFloat { 1.0 }

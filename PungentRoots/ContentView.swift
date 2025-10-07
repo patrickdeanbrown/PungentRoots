@@ -2,9 +2,13 @@ import SwiftUI
 import os
 
 struct ContentView: View {
-    @EnvironmentObject private var appEnvironment: AppEnvironment
+    @Environment(AppEnvironment.self) private var appEnvironment
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    @StateObject private var captureController = LiveCaptureController()
+#if os(iOS)
+    @State private var captureController = AutoCaptureController(prefersDataScanner: true)
+    @State private var capturePreference = true
+#endif
     @State private var normalizedPreview: String = ""
     @State private var detectionResult: DetectionResult?
     @State private var recognizedItems: [LiveCaptureController.RecognizedPayload.Item] = []
@@ -17,6 +21,9 @@ struct ContentView: View {
     @State private var interfaceError: String?
 
     private let logger = Logger(subsystem: "co.ouchieco.PungentRoots", category: "ScanFlow")
+#if os(iOS)
+    @ScaledMetric(relativeTo: .title2) private var baseCameraHeight: CGFloat = 340
+#endif
 
     @AppStorage("retakeButtonAlignment") private var retakeAlignmentRaw: String = RetakeButtonAlignment.trailing.rawValue
 
@@ -31,14 +38,7 @@ struct ContentView: View {
                 .padding(.vertical, 20)
                 .padding(.horizontal)
             }
-            .background(
-                LinearGradient(
-                    gradient: Gradient(colors: [Color(.systemGray6), Color(.systemBackground)]),
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
-            )
+            .background(Color(.systemGroupedBackground).ignoresSafeArea())
             .toolbar { toolbarContent }
             .alert("Error", isPresented: Binding(
                 get: { interfaceError != nil },
@@ -49,12 +49,14 @@ struct ContentView: View {
                 Text(interfaceError ?? "")
             }
         }
+        .navigationTitle(Text("scan.navigation.title"))
+        .toolbarTitleDisplayMode(.large)
         .sheet(isPresented: $isShowingSettings) {
             NavigationStack {
                 SettingsView()
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
-                            Button("Done") { isShowingSettings = false }
+                            Button("common.done", action: { isShowingSettings = false })
                         }
                     }
             }
@@ -69,12 +71,17 @@ struct ContentView: View {
             }
         }
         .onAppear { configureCaptureController() }
+#if os(iOS)
         .onDisappear { captureController.stop() }
-        .onReceive(captureController.$state) { state in
+        .onChange(of: captureController.state) { _, state in
             if case let .error(message) = state {
                 interfaceError = message
             }
         }
+        .onChange(of: appEnvironment.captureOptions.prefersDataScanner) { _, _ in
+            configureCaptureController()
+        }
+#endif
     }
 
     private var cameraModule: some View {
@@ -87,20 +94,39 @@ struct ContentView: View {
     private var cameraPreviewContent: some View {
 #if os(iOS)
         ZStack {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(.thickMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.12), radius: 18, x: 0, y: 12)
             GeometryReader { proxy in
-                LiveCameraPreview(controller: captureController)
-                    .frame(height: proxy.size.height)
-                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                    .overlay(alignmentGuides)
-                    .overlay(statusBadgeOverlay, alignment: .topLeading)
-                    .overlay(retakeButtonOverlay, alignment: retakeAlignment == .leading ? .bottomLeading : .bottomTrailing)
+                Group {
+                    if captureController.isUsingDataScanner, let scanner = captureController.dataScannerController {
+                        DataScannerContainerView(controller: scanner)
+                    } else if let legacy = captureController.legacyController {
+                        LiveCameraPreview(controller: legacy)
+                            .overlay(alignmentGuides)
+                    } else {
+                        Color.black.opacity(0.6)
+                    }
+                }
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .accessibilityElement(children: .contain)
             }
-            .frame(height: 340)
+            .padding(6)
+        }
+        .frame(height: cameraHeight)
+        .frame(maxWidth: .infinity)
+        .overlay(statusBadgeOverlay, alignment: .topLeading)
+        .overlay(retakeButtonOverlay, alignment: retakeAlignment == .leading ? .bottomLeading : .bottomTrailing)
+        .overlay(alignment: .center) {
             if case .error = captureController.state {
                 errorOverlay
             }
         }
-        .frame(maxWidth: .infinity)
         .padding(.horizontal, -16)
 #else
         Text("Camera preview is available on iOS devices.")
@@ -110,6 +136,11 @@ struct ContentView: View {
     }
 
 #if os(iOS)
+    private var cameraHeight: CGFloat {
+        let minimum: CGFloat = dynamicTypeSize.isAccessibilitySize ? 380 : 320
+        return max(minimum, baseCameraHeight)
+    }
+
     private var alignmentGuides: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -129,6 +160,7 @@ struct ContentView: View {
                 Spacer()
             }
         }
+        .accessibilityHidden(true)
     }
 
     private var statusBadgeOverlay: some View {
@@ -176,20 +208,18 @@ struct ContentView: View {
         .padding(.vertical, 8)
         .foregroundStyle(.white)
         .background(
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color.black.opacity(0.65),
-                    Color.black.opacity(0.45)
-                ]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: Capsule()
+            Capsule()
+                .fill(.ultraThinMaterial)
+        )
+        .background(
+            Capsule()
+                .strokeBorder(stateColor.opacity(0.35), lineWidth: 1)
         )
         .shadow(color: stateColor.opacity(0.3), radius: 8, x: 0, y: 2)
+        .accessibilityHint(Text("scan.status.accessibility.hint"))
     }
 
-    private var statusDescriptor: (text: String, icon: String, color: Color) {
+    private var statusDescriptor: (text: LocalizedStringKey, icon: String, color: Color) {
         // When scanning, show readiness-based feedback
         if captureController.state == .scanning {
             switch captureController.readiness {
@@ -197,11 +227,11 @@ struct ContentView: View {
                 let descriptor = captureController.state.descriptor
                 return (descriptor.text, descriptor.icon, .blue)
             case .tooFar:
-                return ("Move closer to label", "arrow.down.forward.and.arrow.up.backward", .orange)
+                return (LocalizedStringKey("scan.status.move_closer"), "arrow.down.forward.and.arrow.up.backward", .orange)
             case .almostReady:
-                return ("Almost ready - hold steady", "camera.metering.center.weighted", .yellow)
+                return (LocalizedStringKey("scan.status.almost_ready"), "camera.metering.center.weighted", .yellow)
             case .ready:
-                return ("Capturing now…", "checkmark.circle", .green)
+                return (LocalizedStringKey("scan.status.ready"), "checkmark.circle", .green)
             }
         }
 
@@ -211,7 +241,7 @@ struct ContentView: View {
         return (descriptor.text, descriptor.icon, color)
     }
 
-    private func statusColor(for state: LiveCaptureController.State) -> Color {
+    private func statusColor(for state: AutoCaptureController.State) -> Color {
         switch state {
         case .idle, .preparing:
             return .gray
@@ -235,23 +265,25 @@ struct ContentView: View {
         .buttonStyle(.borderedProminent)
         .tint(Color.accentColor)
         .clipShape(Circle())
-        .accessibilityLabel("Retake scan")
+        .accessibilityLabel(Text("scan.retake.accessibility"))
+        .accessibilityHint(Text("scan.retake.hint"))
     }
 
     private var errorOverlay: some View {
         VStack(spacing: 12) {
-            Label("Camera unavailable", systemImage: "exclamationmark.triangle.fill")
+            Label("scan.error.title", systemImage: "exclamationmark.triangle.fill")
                 .font(.footnote.weight(.semibold))
             Button {
                 captureController.resumeScanning()
             } label: {
-                Label("Try Again", systemImage: "arrow.clockwise")
+                Label("scan.error.retry", systemImage: "arrow.clockwise")
             }
             .buttonStyle(.borderedProminent)
             .tint(.accentColor)
         }
         .padding(24)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 
     private var shouldShowRetakeButton: Bool {
@@ -314,28 +346,31 @@ struct ContentView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             Button(action: { isShowingSettings = true }) {
-                Label("Info", systemImage: "info.circle")
+                Label("common.info", systemImage: "info.circle")
             }
         }
     }
 
     private func configureCaptureController() {
 #if os(iOS)
-        // Start camera asynchronously to avoid blocking main thread
-        Task { @MainActor in
-            captureController.setHandlers(
-                onCapture: { payload in
-                    handleRecognizedText(payload)
-                },
-                onError: { message in
-                    interfaceError = message
-                }
-            )
+        let prefersDataScanner = appEnvironment.captureOptions.prefersDataScanner
+        if capturePreference != prefersDataScanner {
+            captureController.stop()
+            captureController = AutoCaptureController(prefersDataScanner: prefersDataScanner)
+            capturePreference = prefersDataScanner
+        }
 
-            // Defer camera start to next run loop to prevent blocking
-            DispatchQueue.main.async {
-                captureController.start()
+        captureController.setHandlers(
+            onCapture: { payload in
+                handleRecognizedText(payload)
+            },
+            onError: { message in
+                interfaceError = message
             }
+        )
+
+        DispatchQueue.main.async {
+            captureController.start()
         }
 #endif
     }
@@ -356,34 +391,30 @@ struct ContentView: View {
             highlightedBoxes = []
             recognizedItems = payload.items
             capturedImage = payload.capturedImage
+
             let recognized = appEnvironment.textAcquisition.makeRecognizedText(from: payload.items.map { $0.text })
-            normalizedPreview = recognized.normalized
-            completeAnalysis(normalized: recognized.normalized)
+            let analysis = await appEnvironment.analyzeAsync(recognized.normalized)
+
+            detectionResult = analysis.result
+            normalizedPreview = analysis.normalized
+            updateHighlights(for: analysis.result)
+            announceSummary(for: analysis.result)
+
+            #if os(iOS)
+            let feedback = UINotificationFeedbackGenerator()
+            switch analysis.result.verdict {
+            case .safe:
+                feedback.notificationOccurred(.success)
+            case .needsReview:
+                feedback.notificationOccurred(.warning)
+            case .contains:
+                feedback.notificationOccurred(.error)
+            }
+            #endif
+
             isProcessing = false
             captureController.finishProcessing()
         }
-    }
-
-    @MainActor
-    private func completeAnalysis(normalized: String) {
-        let analysis = appEnvironment.analyze(normalized)
-        detectionResult = analysis.result
-        normalizedPreview = analysis.normalized
-        updateHighlights(for: analysis.result)
-        announceSummary(for: analysis.result)
-
-        // Haptic feedback based on verdict
-        #if os(iOS)
-        let feedback = UINotificationFeedbackGenerator()
-        switch analysis.result.verdict {
-        case .safe:
-            feedback.notificationOccurred(.success)
-        case .needsReview:
-            feedback.notificationOccurred(.warning)
-        case .contains:
-            feedback.notificationOccurred(.error)
-        }
-        #endif
     }
 
     private func announceSummary(for result: DetectionResult) {
@@ -391,11 +422,12 @@ struct ContentView: View {
         let count = result.matches.count
         let message: String
         if count == 0 {
-            message = "No pungent root matches detected."
+            message = String(localized: "scan.summary.none")
         } else if count == 1 {
-            message = "1 match detected. Review details."
+            message = String(localized: "scan.summary.single")
         } else {
-            message = "\(count) matches detected. Review details."
+            let format = NSLocalizedString("scan.summary.multiple", comment: "Announcement for multiple detection matches")
+            message = String(format: format, count)
         }
         UIAccessibility.post(notification: .announcement, argument: message)
 #endif
@@ -465,14 +497,8 @@ struct ContentView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            gradient: Gradient(colors: [Color(.systemBackground), Color(.systemGray6)]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .shadow(color: Color.black.opacity(0.05), radius: 18, x: 0, y: 8)
+                    .fill(.regularMaterial)
+                    .shadow(color: Color.black.opacity(0.08), radius: 14, x: 0, y: 10)
             )
     }
 }
@@ -485,22 +511,14 @@ extension ContentView {
 }
 
 private struct ContentViewPreviewHarness: View {
-    @StateObject private var environment = AppEnvironment(dictionary: DetectDictionary(
-        definite: ["onion"],
-        patterns: ["dehydrated onion"],
-        ambiguous: ["stock"],
-        synonyms: ["allium"],
-        fuzzyHints: ["garilc"],
-        version: "preview"
-    ))
+    @State private var environment = AppEnvironment.preview
 
     var body: some View {
         ContentView()
-            .environmentObject(environment)
+            .environment(environment)
     }
 }
 
 #Preview {
     ContentViewPreviewHarness()
 }
-

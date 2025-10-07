@@ -1,7 +1,7 @@
 import Foundation
 
 /// Centralized configuration for detection scoring and thresholds
-struct DetectionScoring {
+struct DetectionScoring: Sendable {
     // MARK: - Match Score Contributions
 
     /// Score contribution for definite matches (exact term matches)

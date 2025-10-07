@@ -1,6 +1,6 @@
 import Foundation
 
-struct DetectionEngine {
+struct DetectionEngine: Sendable {
     private let dictionary: DetectDictionary
     private let normalizer: TextNormalizer
     private let scoring: DetectionScoring

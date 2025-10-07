@@ -1,11 +1,26 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @EnvironmentObject private var appEnvironment: AppEnvironment
+    @Environment(AppEnvironment.self) private var appEnvironment
     @AppStorage("retakeButtonAlignment") private var retakeAlignmentRaw: String = RetakeButtonAlignment.trailing.rawValue
     @State private var showingCaptureTips = false
 
+#if os(iOS)
+    @MainActor
+    private var dataScannerSupported: Bool {
+        if #available(iOS 16.0, *) {
+            return DataScannerCaptureController.isSupported
+        } else {
+            return false
+        }
+    }
+#else
+    private var dataScannerSupported: Bool { false }
+#endif
+
     var body: some View {
+        @Bindable var bindings = appEnvironment
+
         ScrollView {
             VStack(spacing: 20) {
                 // App header
@@ -24,7 +39,7 @@ struct SettingsView: View {
                     Text("PungentRoots")
                         .font(.title2.weight(.bold))
 
-                    Text("Detect alliums in ingredients instantly")
+                    Text("settings.header.tagline")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -32,10 +47,30 @@ struct SettingsView: View {
                 .padding(.vertical, 8)
 
                 // Capture settings card
-                settingsCard(title: "Capture", icon: "camera.viewfinder") {
+                settingsCard(title: LocalizedStringKey("settings.capture.heading"), icon: "camera.viewfinder") {
                     VStack(alignment: .leading, spacing: 16) {
+                        Toggle(isOn: $bindings.captureOptions.prefersDataScanner) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("settings.visionkit.toggle")
+                                    .font(.subheadline.weight(.medium))
+                                Text("settings.visionkit.description")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .disabled(!dataScannerSupported)
+
+#if os(iOS)
+                        if !dataScannerSupported {
+                            Text("settings.visionkit.unsupported")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+#endif
+
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Retake Button Position")
+                            Text("settings.retake.title")
                                 .font(.subheadline.weight(.medium))
                             Picker("", selection: $retakeAlignmentRaw) {
                                 ForEach(RetakeButtonAlignment.allCases) { alignment in
@@ -44,7 +79,7 @@ struct SettingsView: View {
                             }
                             .pickerStyle(.segmented)
 
-                            Text("Position at bottom corner for easy thumb access")
+                            Text("settings.retake.caption")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -53,7 +88,7 @@ struct SettingsView: View {
                             showingCaptureTips.toggle()
                         } label: {
                             HStack {
-                                Label("Capture Tips", systemImage: "lightbulb.fill")
+                                Label(LocalizedStringKey("settings.tips.title"), systemImage: "lightbulb.fill")
                                     .font(.subheadline.weight(.medium))
                                 Spacer()
                                 Image(systemName: showingCaptureTips ? "chevron.up" : "chevron.down")
@@ -64,9 +99,9 @@ struct SettingsView: View {
 
                         if showingCaptureTips {
                             VStack(alignment: .leading, spacing: 12) {
-                                tipRow(icon: "viewfinder", text: "Fill the frame with the ingredient list")
-                                tipRow(icon: "bolt.badge.clock", text: "Hold steady while the camera focuses")
-                                tipRow(icon: "arrow.clockwise", text: "Rescan anytime to update results")
+                                tipRow(icon: "viewfinder", text: LocalizedStringKey("settings.tips.fill_frame"))
+                                tipRow(icon: "bolt.badge.clock", text: LocalizedStringKey("settings.tips.hold_steady"))
+                                tipRow(icon: "arrow.clockwise", text: LocalizedStringKey("settings.tips.rescan"))
                             }
                             .padding(.top, 4)
                             .transition(.opacity.combined(with: .move(edge: .top)))
@@ -75,7 +110,7 @@ struct SettingsView: View {
                 }
 
                 // Privacy card
-                settingsCard(title: "Privacy", icon: "lock.shield.fill") {
+                settingsCard(title: LocalizedStringKey("settings.privacy.heading"), icon: "lock.shield.fill") {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(alignment: .top, spacing: 12) {
                             Image(systemName: "checkmark.seal.fill")
@@ -83,9 +118,9 @@ struct SettingsView: View {
                                 .foregroundStyle(.green)
 
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("All processing on-device")
+                                Text("settings.privacy.on_device.title")
                                     .font(.subheadline.weight(.semibold))
-                                Text("Camera access powers automatic captures. No photos or text leave your device.")
+                                Text("settings.privacy.on_device.description")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -94,11 +129,11 @@ struct SettingsView: View {
                 }
 
                 // Dictionary card
-                settingsCard(title: "Detection Dictionary", icon: "book.fill") {
+                settingsCard(title: LocalizedStringKey("settings.dictionary.heading"), icon: "book.fill") {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("Version")
+                                Text("settings.dictionary.version")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                 Text(appEnvironment.dictionary.version)
@@ -108,10 +143,10 @@ struct SettingsView: View {
                             Spacer()
 
                             VStack(alignment: .trailing, spacing: 4) {
-                                Text("Coverage")
+                                Text("settings.dictionary.coverage")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
-                                Text("50+ terms")
+                                Text("settings.dictionary.coverage_value")
                                     .font(.body.weight(.semibold))
                             }
                         }
@@ -119,39 +154,39 @@ struct SettingsView: View {
 
                         Divider()
 
-                        Text("Detects onions, garlic, shallots, leeks, chives, scallions, ramps, and related alliums with synonyms and pattern matching.")
+                        Text("settings.dictionary.description")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
 
                 // Support card
-                settingsCard(title: "Support", icon: "questionmark.circle.fill") {
+                settingsCard(title: LocalizedStringKey("settings.support.heading"), icon: "questionmark.circle.fill") {
                     VStack(alignment: .leading, spacing: 12) {
                         infoRow(
                             icon: "exclamationmark.bubble",
-                            title: "Report Issues",
-                            description: "Use the Report Issue button when you find incorrect detections"
+                            title: LocalizedStringKey("settings.support.report.title"),
+                            description: LocalizedStringKey("settings.support.report.description")
                         )
 
                         Divider()
 
                         infoRow(
                             icon: "camera.badge.clock",
-                            title: "Fresh Results",
-                            description: "Scans are transient. Rescan for updated results with each label"
+                            title: LocalizedStringKey("settings.support.fresh.title"),
+                            description: LocalizedStringKey("settings.support.fresh.description")
                         )
                     }
                 }
             }
             .padding()
         }
-        .navigationTitle("Info & Settings")
+        .navigationTitle(Text("settings.navigation.title"))
         .navigationBarTitleDisplayMode(.inline)
         .animation(.easeInOut(duration: 0.2), value: showingCaptureTips)
     }
 
-    private func settingsCard<Content: View>(title: String, icon: String, @ViewBuilder content: () -> Content) -> some View {
+    private func settingsCard<Content: View>(title: LocalizedStringKey, icon: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Label(title, systemImage: icon)
                 .font(.headline)
@@ -167,7 +202,7 @@ struct SettingsView: View {
         )
     }
 
-    private func tipRow(icon: String, text: String) -> some View {
+    private func tipRow(icon: String, text: LocalizedStringKey) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .medium))
@@ -180,7 +215,7 @@ struct SettingsView: View {
         }
     }
 
-    private func infoRow(icon: String, title: String, description: String) -> some View {
+    private func infoRow(icon: String, title: LocalizedStringKey, description: LocalizedStringKey) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 16))

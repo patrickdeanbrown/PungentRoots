@@ -1,15 +1,17 @@
 import Foundation
 
+import SwiftUI
+
 enum RetakeButtonAlignment: String, CaseIterable, Identifiable {
     case leading
     case trailing
 
     var id: String { rawValue }
 
-    var displayName: String {
+    var displayName: LocalizedStringKey {
         switch self {
-        case .leading: return "Left"
-        case .trailing: return "Right"
+        case .leading: return LocalizedStringKey("settings.retake.leading")
+        case .trailing: return LocalizedStringKey("settings.retake.trailing")
         }
     }
 }
