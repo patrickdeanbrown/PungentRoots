@@ -9,7 +9,7 @@
   - `Detection/`: dictionary models (`DetectDictionary`), rule-based `DetectionEngine`, and `DetectionScoring` constants.
   - `Utilities/`: normalization and regex helpers used across detection/OCR layers.
   - `Models/`: SwiftData-compatible `Scan` record plus supporting enums and match structs.
-  - `Views/`: SwiftUI presentation (camera overlays, detection cards, settings, reporting) that consume environment services and use system materials/Dynamic Type-friendly layouts.
+  - `Views/`: SwiftUI presentation (camera overlays, detection cards, settings, guidance) that consume environment services and use system materials/Dynamic Type-friendly layouts.
   - `Resources/`: localization assets (`en.lproj/Localizable.strings`) and bundled dictionary JSON (keep versioned and alphabetized by locale group).
 - `PungentRootsTests/`: unit targets built with Apple’s new `Testing` framework—cover normalization, detection scoring, and service fixtures.
 - `PungentRootsUITests/`: UI automation and accessibility assertions.

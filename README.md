@@ -8,7 +8,7 @@ PungentRoots is a SwiftUI iOS app that screens ingredient labels for allium-cont
 2. **Capture + OCR** – `AutoCaptureController` negotiates between VisionKit `DataScannerViewController` and the legacy `LiveCaptureController` (AVFoundation + Vision) while `TextAcquisitionService` and `OCRConfiguration` normalize text for detection. Camera UI now uses system materials, Dynamic Type-aware sizing, and localized guidance.
 3. **Detection Engine** – `DetectionEngine` consults `DetectDictionary` to run exact, synonym, pattern, ambiguous, and fuzzy passes that yield `DetectionResult` aggregates. Async helpers in `AppEnvironment` execute scoring off the main thread with signpost instrumentation.
 4. **Models & Persistence** – Types in `Models/` (`Scan`, `Match`, enums) mirror detection payloads and keep highlight ranges consistent for SwiftUI overlays.
-5. **Presentation** – SwiftUI views under `Views/` render camera overlays, result cards, settings, and reporting affordances while respecting environment services. Shared strings live in `Resources/en.lproj/Localizable.strings` for future localization.
+5. **Presentation** – SwiftUI views under `Views/` render camera overlays, result cards, settings, and guidance affordances while respecting environment services. Shared strings live in `Resources/en.lproj/Localizable.strings` for future localization.
 6. **Observability** – `MetricReporter` subscribes to `MXMetricManager` and `OSSignposter` intervals capture detection latency for performance regression tracking.
 
 ## Local Development
