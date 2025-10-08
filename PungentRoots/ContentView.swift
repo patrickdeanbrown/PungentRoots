@@ -17,15 +17,12 @@ struct ContentView: View {
     @State private var isProcessing = false
     @State private var isShowingFullText = false
     @State private var isShowingSettings = false
-    @State private var isShowingReportIssue = false
     @State private var interfaceError: String?
 
     private let logger = Logger(subsystem: "co.ouchieco.PungentRoots", category: "ScanFlow")
 #if os(iOS)
     @ScaledMetric(relativeTo: .title2) private var baseCameraHeight: CGFloat = 340
 #endif
-
-    @AppStorage("retakeButtonAlignment") private var retakeAlignmentRaw: String = RetakeButtonAlignment.trailing.rawValue
 
     var body: some View {
         NavigationStack {
@@ -59,15 +56,6 @@ struct ContentView: View {
                             Button("common.done", action: { isShowingSettings = false })
                         }
                     }
-            }
-        }
-        .sheet(isPresented: $isShowingReportIssue) {
-            if let result = detectionResult {
-                ReportIssueView(
-                    capturedImage: capturedImage,
-                    detectionResult: result,
-                    normalizedText: normalizedPreview
-                )
             }
         }
         .onAppear { configureCaptureController() }
@@ -121,7 +109,6 @@ struct ContentView: View {
         .frame(height: cameraHeight)
         .frame(maxWidth: .infinity)
         .overlay(statusBadgeOverlay, alignment: .topLeading)
-        .overlay(retakeButtonOverlay, alignment: retakeAlignment == .leading ? .bottomLeading : .bottomTrailing)
         .overlay(alignment: .center) {
             if case .error = captureController.state {
                 errorOverlay
@@ -170,15 +157,6 @@ struct ContentView: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 16)
-    }
-
-    @ViewBuilder
-    private var retakeButtonOverlay: some View {
-        if shouldShowRetakeButton {
-            retakeButton
-                .padding(.horizontal, 16)
-                .padding(.bottom, 16)
-        }
     }
 
     @ViewBuilder
@@ -256,19 +234,6 @@ struct ContentView: View {
         }
     }
 
-    private var retakeButton: some View {
-        Button(action: rescan) {
-            Image(systemName: "camera.rotate")
-                .imageScale(.medium)
-                .padding(12)
-        }
-        .buttonStyle(.borderedProminent)
-        .tint(Color.accentColor)
-        .clipShape(Circle())
-        .accessibilityLabel(Text("scan.retake.accessibility"))
-        .accessibilityHint(Text("scan.retake.hint"))
-    }
-
     private var errorOverlay: some View {
         VStack(spacing: 12) {
             Label("scan.error.title", systemImage: "exclamationmark.triangle.fill")
@@ -284,20 +249,6 @@ struct ContentView: View {
         .padding(24)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .accessibilityElement(children: .combine)
-    }
-
-    private var shouldShowRetakeButton: Bool {
-        // Only show retake button when we have results to retake
-        guard detectionResult != nil else { return false }
-
-        switch captureController.state {
-        case .processing:
-            return false
-        case .error, .paused:
-            return true
-        default:
-            return true
-        }
     }
 
 #endif
@@ -317,8 +268,7 @@ struct ContentView: View {
                         capturedImage: capturedImage,
                         detectionBoxes: highlightedBoxes,
                         isShowingFullText: $isShowingFullText,
-                        onRescan: rescan,
-                        onReportIssue: { isShowingReportIssue = true }
+                        onRescan: rescan
                     )
                 }
                 .transition(.asymmetric(
@@ -503,12 +453,6 @@ struct ContentView: View {
     }
 }
 
-
-extension ContentView {
-    var retakeAlignment: RetakeButtonAlignment {
-        RetakeButtonAlignment(rawValue: retakeAlignmentRaw) ?? .trailing
-    }
-}
 
 private struct ContentViewPreviewHarness: View {
     @State private var environment = AppEnvironment.preview
