@@ -36,7 +36,7 @@ struct SettingsView: View {
                         )
                         .padding(.top, 8)
 
-                    Text("PungentRoots")
+                    Text("Pungent Roots")
                         .font(.title2.weight(.bold))
 
                     Text("settings.header.tagline")
