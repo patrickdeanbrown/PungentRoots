@@ -11,8 +11,6 @@
 "scan.status.accessibility.hint" = "Scanner status updates as capture progresses.";
 "scan.error.title" = "Scanner unavailable";
 "scan.error.retry" = "Try Again";
-"scan.retake.accessibility" = "Retake scan";
-"scan.retake.hint" = "Capture another image of the ingredient list.";
 "scan.summary.none" = "No pungent root matches detected.";
 "scan.summary.single" = "1 match detected. Review details.";
 "scan.summary.multiple" = "%d matches detected. Review details.";
@@ -24,10 +22,6 @@
 "settings.visionkit.toggle" = "VisionKit Auto Scanner";
 "settings.visionkit.description" = "Use Apple's Live Text pipeline when available for faster, on-device recognition.";
 "settings.visionkit.unsupported" = "VisionKit requires an A12 Bionic or newer device running iOS 16.";
-"settings.retake.title" = "Retake Button Position";
-"settings.retake.caption" = "Position at bottom corner for easy thumb access";
-"settings.retake.leading" = "Left";
-"settings.retake.trailing" = "Right";
 "settings.tips.title" = "Capture Tips";
 "settings.tips.fill_frame" = "Fill the frame with the ingredient list";
 "settings.tips.hold_steady" = "Hold steady while the camera focuses";
@@ -44,8 +38,6 @@
 "settings.dictionary.description" = "Detects onions, garlic, shallots, leeks, chives, scallions, ramps, and related alliums with synonyms and pattern matching.";
 
 "settings.support.heading" = "Support";
-"settings.support.report.title" = "Report Issues";
-"settings.support.report.description" = "Use the Report Issue button when you find incorrect detections.";
 "settings.support.fresh.title" = "Fresh Results";
 "settings.support.fresh.description" = "Scans are transient. Rescan for updated results with each label.";
 

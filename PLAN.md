@@ -57,7 +57,7 @@
   - Adopt `ViewThatFits`/adaptive stacks to accommodate compact vs. regular size classes.
   - Update toolbar/navigation to large-title patterns with contextual trailing actions.
 - **Accessibility & Localization**
-  - Add descriptive accessibility labels, hints, and traits to overlays, retake controls, and status badges.
+  - Add descriptive accessibility labels, hints, and traits to overlays and status badges.
   - Localize newly surfaced scanner guidance strings and regenerate `Localizable.strings`.
   - Extend UI tests to cover Dynamic Type, VoiceOver focus, and refreshed snapshots.
 - **Validation**

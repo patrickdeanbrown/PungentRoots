@@ -7,7 +7,6 @@ struct DetectionResultView: View {
     let detectionBoxes: [DetectionOverlay]
     @Binding var isShowingFullText: Bool
     let onRescan: () -> Void
-    let onReportIssue: () -> Void
 
     @State private var showingHighInfo = false
     @State private var showingMediumInfo = false
@@ -186,18 +185,6 @@ struct DetectionResultView: View {
             .accessibilityLabel("Scan another label")
             .accessibilityHint("Returns to camera to scan a new ingredient label")
 
-            // Secondary action: Report issue (only for review/contains)
-            if result.verdict != .safe {
-                Button(action: onReportIssue) {
-                    Label("Report Issue", systemImage: "exclamationmark.bubble")
-                        .font(.body)
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-                .accessibilityLabel("Report issue")
-                .accessibilityHint("Share feedback if this detection is incorrect")
-            }
         }
     }
 

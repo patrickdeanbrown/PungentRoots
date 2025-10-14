@@ -2,7 +2,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AppEnvironment.self) private var appEnvironment
-    @AppStorage("retakeButtonAlignment") private var retakeAlignmentRaw: String = RetakeButtonAlignment.trailing.rawValue
     @State private var showingCaptureTips = false
 
 #if os(iOS)
@@ -68,21 +67,6 @@ struct SettingsView: View {
                                 .foregroundStyle(.tertiary)
                         }
 #endif
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("settings.retake.title")
-                                .font(.subheadline.weight(.medium))
-                            Picker("", selection: $retakeAlignmentRaw) {
-                                ForEach(RetakeButtonAlignment.allCases) { alignment in
-                                    Text(alignment.displayName).tag(alignment.rawValue)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-
-                            Text("settings.retake.caption")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
 
                         Button {
                             showingCaptureTips.toggle()
@@ -163,14 +147,6 @@ struct SettingsView: View {
                 // Support card
                 settingsCard(title: LocalizedStringKey("settings.support.heading"), icon: "questionmark.circle.fill") {
                     VStack(alignment: .leading, spacing: 12) {
-                        infoRow(
-                            icon: "exclamationmark.bubble",
-                            title: LocalizedStringKey("settings.support.report.title"),
-                            description: LocalizedStringKey("settings.support.report.description")
-                        )
-
-                        Divider()
-
                         infoRow(
                             icon: "camera.badge.clock",
                             title: LocalizedStringKey("settings.support.fresh.title"),
