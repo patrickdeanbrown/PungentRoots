@@ -21,3 +21,6 @@ PungentRoots is a SwiftUI iOS app that screens ingredient labels for allium-cont
 - Detection assumes normalized UTF-16 ranges—when adjusting tokenizers or matchers, preserve range math to keep highlights accurate.
 - Camera and OCR work run off the main actor; funnel UI mutations back through `DispatchQueue.main`/`@MainActor` to avoid state races. Use `AppEnvironment.analyzeAsync` for long-running analysis.
 - When expanding verdicts or UI states, update `DetectionResultView` (and related overlays) plus add coverage under `PungentRootsTests/` or document manual validation for camera heuristics.
+
+## License
+PungentRoots is distributed under the terms of the [MIT License](LICENSE).
