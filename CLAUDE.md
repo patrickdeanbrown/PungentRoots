@@ -25,4 +25,4 @@
 ## Quality & Safety Checks
 - Uphold 4-space indentation, `guard`-first early exits, and functions under ~80 lines; suggest extracting helpers into `Utilities/` when logic grows.
 - Flag any networking, logging of sensitive OCR text, or privacy regressions immediately—processing must stay on-device.
-- Ensure PR messaging aligns with repository guidelines and that agent docs stay synchronized (compare `GEMINI.md` for parity).
+- Ensure commit messages and PR descriptions align with repository guidelines; keep agent docs (`CLAUDE.md`, `GEMINI.md`) synchronized.

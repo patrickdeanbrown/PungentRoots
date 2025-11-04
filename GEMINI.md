@@ -25,4 +25,4 @@
 ## Quality & Safety Checks
 - Reinforce 4-space indentation, `guard`-first early exits, and <80-line functions; suggest extracting helpers into `Utilities/` when logic expands.
 - Reject proposals that introduce networking, cloud processing, or logging of sensitive OCR text—processing must remain on-device.
-- Mirror the guidance level found in `CLAUDE.md` so agent docs stay synchronized.
+- Keep agent docs (`CLAUDE.md`, `GEMINI.md`) synchronized and maintain equivalent detail levels across both guides.

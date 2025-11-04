@@ -1,26 +1,62 @@
 # PungentRoots
 
-## Developer Summary
-PungentRoots is a SwiftUI iOS app that screens ingredient labels for allium-containing terms entirely on-device. Live capture defaults to VisionKit’s `DataScannerViewController` for low-latency text extraction, falling back to the legacy `AVCaptureSession` + Vision OCR pipeline when hardware support is unavailable. A rule-based detection engine scores risk levels and surfaces accessibility-friendly verdicts to the UI. The codebase is organized by feature (camera/OCR, detection, services, views) so each module can evolve independently while sharing normalization utilities.
+PungentRoots is a SwiftUI iOS app that scans ingredient labels to detect allium ingredients (onions, garlic, shallots, leeks, chives, scallions) entirely on-device using Vision OCR and rule-based detection.
 
-## Architecture at a Glance
-1. **App bootstrap** – `PungentRootsApp` loads the bundled dictionary and injects shared services through `AppEnvironment`.
-2. **Capture + OCR** – `AutoCaptureController` negotiates between VisionKit `DataScannerViewController` and the legacy `LiveCaptureController` (AVFoundation + Vision) while `TextAcquisitionService` and `OCRConfiguration` normalize text for detection. Camera UI now uses system materials, Dynamic Type-aware sizing, and localized guidance.
-3. **Detection Engine** – `DetectionEngine` consults `DetectDictionary` to run exact, synonym, pattern, ambiguous, and fuzzy passes that yield `DetectionResult` aggregates. Async helpers in `AppEnvironment` execute scoring off the main thread with signpost instrumentation.
-4. **Models & Persistence** – Types in `Models/` (`Scan`, `Match`, enums) mirror detection payloads and keep highlight ranges consistent for SwiftUI overlays.
-5. **Presentation** – SwiftUI views under `Views/` render camera overlays, result cards, settings, and guidance affordances while respecting environment services. Shared strings live in `Resources/en.lproj/Localizable.strings` for future localization.
-6. **Observability** – `MetricReporter` subscribes to `MXMetricManager` and `OSSignposter` intervals capture detection latency for performance regression tracking.
+## Features
 
-## Local Development
-- Open `PungentRoots.xcodeproj` in Xcode 15+ (iOS 17+ SDK recommended) or run `xed .`.
-- Preferred build: `xcodebuild -scheme PungentRoots -destination "platform=iOS Simulator,OS=18.5,name=iPhone 16 Pro" build`.
-- Preferred full test pass: `Scripts/run-tests.sh` (wraps `xcodebuild test` and simulator shutdown for reproducibility).
-- Dictionary source lives at `PungentRoots/Resources/pungent_roots_dictionary.json`; keep entries sorted, localized groupings intact, and bump the embedded `version` field when editing.
+### Core Functionality
+- **Real-time camera scanning** with automatic capture when text quality is sufficient
+- **On-device processing** – no network required, complete privacy
+- **Multilingual detection** – identifies allium terms in English, Spanish, French, Italian, German, Portuguese, Japanese, Mandarin, and Korean
+- **Three-tier verdicts** – Safe / Needs Review / Contains with clear visual indicators
+- **Smart detection engine** – multi-pass system with exact matching, pattern detection, fuzzy matching (OCR error correction), and ambiguous term flagging
 
-## Contribution Notes
-- Detection assumes normalized UTF-16 ranges—when adjusting tokenizers or matchers, preserve range math to keep highlights accurate.
-- Camera and OCR work run off the main actor; funnel UI mutations back through `DispatchQueue.main`/`@MainActor` to avoid state races. Use `AppEnvironment.analyzeAsync` for long-running analysis.
-- When expanding verdicts or UI states, update `DetectionResultView` (and related overlays) plus add coverage under `PungentRootsTests/` or document manual validation for camera heuristics.
+### Camera & Capture
+- **Dual scanner system** – VisionKit DataScanner (iOS 16+) with AVFoundation fallback for older devices
+- **Intelligent readiness feedback** – progressive states (Too Far → Almost Ready → Ready)
+- **Configurable zoom** – 1.0x to 5.0x with device-specific limits
+- **Quality gates** – minimum text length, line count, and confidence thresholds
+
+### User Experience
+- **Visual highlights** – color-coded bounding boxes and text highlighting showing detected ingredients
+- **Accessibility support** – VoiceOver labels, haptic feedback, Dynamic Type support
+- **Capture tips** – built-in guidance for optimal scanning results
+- **Privacy-first** – all text processing stays on device, privacy manifest included
+
+## Architecture
+
+The app follows a clear data flow: Camera Capture → OCR → Text Normalization → Detection → Presentation
+
+1. **Capture** – `AutoCaptureController` selects VisionKit or AVFoundation based on device capability
+2. **OCR** – `TextAcquisitionService` + `OCRConfiguration` extract and normalize text from frames
+3. **Detection** – `DetectionEngine` applies multi-pass rules (exact, pattern, fuzzy, ambiguous) using `DetectDictionary`
+4. **Presentation** – SwiftUI views display results with color-coded highlights and accessibility support
+5. **Services** – `AppEnvironment` wires dependencies; `MetricReporter` tracks performance
+
+## Development
+
+### Building & Testing
+```bash
+xed .  # Open in Xcode 15+
+xcodebuild -scheme PungentRoots -destination "platform=iOS Simulator,OS=18.5,name=iPhone 16 Pro" build
+Scripts/run-tests.sh  # Run full test suite with simulator cleanup
+```
+
+### Key Directories
+- `PungentRoots/Camera/` – Dual scanner implementation (VisionKit + AVFoundation)
+- `PungentRoots/Detection/` – Detection engine, scoring, and dictionary loading
+- `PungentRoots/OCR/` – Vision configuration and text normalization
+- `PungentRoots/Views/` – SwiftUI presentation layer
+- `PungentRoots/Resources/pungent_roots_dictionary.json` – Detection terms (versioned, alphabetized)
+- `PungentRootsTests/` – Apple Testing framework test suites
+
+### Contributing
+- Preserve UTF-16 ranges when modifying text processing to maintain highlight accuracy
+- Use `@MainActor` for UI updates; detection runs async via `AppEnvironment.analyzeAsync`
+- Bump dictionary `version` field when editing terms and document changes in commit messages
+- Add tests for detection logic changes; document manual validation for camera/OCR tuning
+
+See `AGENTS.md` for detailed coding standards and workflow guidelines.
 
 ## License
 PungentRoots is distributed under the terms of the [MIT License](LICENSE).

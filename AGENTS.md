@@ -40,13 +40,13 @@
 - Update `README.md` when workflows or architecture entry points change; keep the developer summary concise but actionable.
 - Maintain `AGENTS.md`, `GEMINI.md`, and `CLAUDE.md` in sync with repository structure. Claude and Gemini guides must remain equivalently detailed, each calling out their agent-specific best practices (Claude code snippets, Gemini CLI responses).
 - The detection dictionary is versioned—bump the JSON `version` string and note the rationale in commit/PR descriptions when editing ingredients.
-- Record manual validation steps for camera/OCR tuning in `PLAN.md` when automation is impractical.
+- Document manual validation steps for camera/OCR tuning in commit messages or PR descriptions when automation is impractical.
 
 ## Commit & Pull Request Guidelines
 - Write imperative, present-tense summaries (`Add detection engine service`) with optional scope tags (`[Detection]`); keep the first line ≤72 chars.
 - Reference issues or Notion tasks in the body, and list validation evidence (`xcodebuild test`, simulator screenshots) before requesting review.
 - PRs must include: purpose summary, targeted screens/devices, accessibility considerations, and any new assets/fixtures as separate commits when practical.
-- Before merging, confirm `AGENTS.md`, `PLAN.md`, and agent guides reflect structural or process updates.
+- Before merging, confirm `AGENTS.md`, `README.md`, and agent guides (`CLAUDE.md`, `GEMINI.md`) reflect structural or process updates.
 
 ## Documentation Resources
 - Use the context7 tool to pull the latest Apple documentation—the Vision, AVFoundation, and SwiftUI APIs evolve quickly and recent changes may not be in cached references.
