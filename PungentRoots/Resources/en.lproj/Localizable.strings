@@ -43,3 +43,13 @@
 
 "settings.navigation.title" = "Info & Settings";
 "settings.header.tagline" = "Detect alliums in ingredients instantly";
+
+"settings.about.heading" = "About";
+"settings.about.version" = "Version";
+"settings.about.build" = "Build";
+"settings.about.copyright" = "© 2025 Patrick Brown. All rights reserved.";
+"settings.about.opensource.title" = "Open Source";
+"settings.about.opensource.description" = "Pungent Roots is MIT licensed. View source code on GitHub.";
+"settings.about.privacy" = "Privacy Policy";
+"settings.about.terms" = "Terms of Service";
+"settings.about.license" = "MIT License";

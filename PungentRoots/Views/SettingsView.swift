@@ -154,12 +154,114 @@ struct SettingsView: View {
                         )
                     }
                 }
+
+                // About card
+                settingsCard(title: LocalizedStringKey("settings.about.heading"), icon: "info.circle.fill") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        // Version info
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("settings.about.version")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(appVersion)
+                                    .font(.body.weight(.medium))
+                            }
+
+                            Spacer()
+
+                            VStack(alignment: .trailing, spacing: 4) {
+                                Text("settings.about.build")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(buildNumber)
+                                    .font(.body.weight(.medium))
+                            }
+                        }
+                        .padding(.vertical, 4)
+
+                        Divider()
+
+                        // Copyright
+                        Text("settings.about.copyright")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Divider()
+
+                        // Open Source
+                        infoRow(
+                            icon: "chevron.left.forwardslash.chevron.right",
+                            title: LocalizedStringKey("settings.about.opensource.title"),
+                            description: LocalizedStringKey("settings.about.opensource.description")
+                        )
+
+                        Divider()
+
+                        // Legal links
+                        VStack(alignment: .leading, spacing: 8) {
+                            Button {
+                                openURL("https://github.com/patrickdeanbrown/PungentRoots/blob/main/PRIVACY_POLICY.md")
+                            } label: {
+                                HStack {
+                                    Text("settings.about.privacy")
+                                        .font(.subheadline)
+                                    Spacer()
+                                    Image(systemName: "arrow.up.right.square")
+                                        .font(.caption)
+                                }
+                                .foregroundStyle(.primary)
+                            }
+
+                            Button {
+                                openURL("https://github.com/patrickdeanbrown/PungentRoots/blob/main/TERMS_OF_SERVICE.md")
+                            } label: {
+                                HStack {
+                                    Text("settings.about.terms")
+                                        .font(.subheadline)
+                                    Spacer()
+                                    Image(systemName: "arrow.up.right.square")
+                                        .font(.caption)
+                                }
+                                .foregroundStyle(.primary)
+                            }
+
+                            Button {
+                                openURL("https://github.com/patrickdeanbrown/PungentRoots/blob/main/LICENSE")
+                            } label: {
+                                HStack {
+                                    Text("settings.about.license")
+                                        .font(.subheadline)
+                                    Spacer()
+                                    Image(systemName: "arrow.up.right.square")
+                                        .font(.caption)
+                                }
+                                .foregroundStyle(.primary)
+                            }
+                        }
+                    }
+                }
             }
             .padding()
         }
         .navigationTitle(Text("settings.navigation.title"))
         .navigationBarTitleDisplayMode(.inline)
         .animation(.easeInOut(duration: 0.2), value: showingCaptureTips)
+    }
+
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+    }
+
+    private var buildNumber: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+    }
+
+    private func openURL(_ urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+        #if os(iOS)
+        UIApplication.shared.open(url)
+        #endif
     }
 
     private func settingsCard<Content: View>(title: LocalizedStringKey, icon: String, @ViewBuilder content: () -> Content) -> some View {
