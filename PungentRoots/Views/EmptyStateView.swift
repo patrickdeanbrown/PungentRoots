@@ -4,21 +4,17 @@ import SwiftUI
 struct EmptyStateView: View {
     var body: some View {
         VStack(spacing: 24) {
-            Spacer()
-
-            // Large icon
             Image(systemName: "viewfinder.circle")
                 .font(.system(size: 72, weight: .thin))
                 .foregroundStyle(.secondary.opacity(0.5))
                 .padding(.bottom, 8)
 
-            // Main instruction
             VStack(spacing: 8) {
-                Text("Scan an Ingredient Label")
+                Text("Capture the Whole Ingredient Panel")
                     .font(.title2.weight(.bold))
                     .foregroundStyle(.primary)
 
-                Text("Point your camera at the ingredient list on food packaging")
+                Text("Use the live preview to frame the full ingredient list before analyzing the label.")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -27,19 +23,19 @@ struct EmptyStateView: View {
 
             // Tips
             VStack(alignment: .leading, spacing: 16) {
-                tipRow(icon: "viewfinder", text: "Fill the frame with text")
-                tipRow(icon: "lightbulb", text: "Use good lighting")
-                tipRow(icon: "hand.tap", text: "Hold steady for auto-capture")
+                tipRow(icon: "viewfinder", text: "Fill the frame with the ingredient panel")
+                tipRow(icon: "sun.max", text: "Reduce glare from glossy packaging")
+                tipRow(icon: "arrow.up.left.and.down.right.magnifyingglass", text: "Keep curved labels as flat as possible")
             }
             .padding(.top, 8)
-
-            Spacer()
-            Spacer()
         }
         .frame(maxWidth: .infinity)
+        .padding(.top, 12)
+        .padding(.bottom, 28)
         .transition(.opacity.combined(with: .scale(scale: 0.95)))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Ready to scan. Point your camera at an ingredient label to begin.")
+        .accessibilityLabel("Ready to scan. Frame the full ingredient panel and use Analyze Label to capture it.")
+        .accessibilityIdentifier("scan-empty-state")
     }
 
     private func tipRow(icon: String, text: String) -> some View {

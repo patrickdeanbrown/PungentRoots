@@ -16,28 +16,8 @@ final class AutoCaptureController {
         case legacy(LiveCaptureController)
     }
 
-    enum State: Equatable {
-        case idle
-        case preparing
-        case scanning
-        case processing
-        case paused
-        case error(String)
-
-        init(_ legacy: LiveCaptureController.State) {
-            switch legacy {
-            case .idle: self = .idle
-            case .preparing: self = .preparing
-            case .scanning: self = .scanning
-            case .processing: self = .processing
-            case .paused: self = .paused
-            case .error(let message): self = .error(message)
-            }
-        }
-    }
-
-    private(set) var state: State = .idle
-    private(set) var readiness: LiveCaptureController.ReadinessLevel = .none
+    private(set) var state: CaptureState = .idle
+    private(set) var readiness: CaptureReadiness = .none
     private(set) var mode: Mode
 
     var isUsingDataScanner: Bool {
@@ -63,7 +43,7 @@ final class AutoCaptureController {
     }
 
     func setHandlers(
-        onCapture: @escaping (LiveCaptureController.RecognizedPayload) -> Void,
+        onCapture: @escaping (CapturePayload) -> Void,
         onError: @escaping (String) -> Void
     ) {
         switch mode {
@@ -127,7 +107,7 @@ final class AutoCaptureController {
     private func bindLegacy(_ controller: LiveCaptureController) {
         controller.$state.receive(on: DispatchQueue.main).sink { [weak self] newState in
             guard let self else { return }
-            self.state = State(newState)
+            self.state = newState
         }
         .store(in: &legacyCancellables)
 
@@ -157,23 +137,23 @@ final class AutoCaptureController {
 @MainActor
 @Observable
 final class DataScannerCaptureController: NSObject, DataScannerViewControllerDelegate {
-    typealias RecognizedPayload = LiveCaptureController.RecognizedPayload
+    typealias RecognizedPayload = CapturePayload
 
     static var isSupported: Bool {
         DataScannerViewController.isSupported && DataScannerViewController.isAvailable
     }
 
-    var stateDidChange: ((AutoCaptureController.State) -> Void)?
-    var readinessDidChange: ((LiveCaptureController.ReadinessLevel) -> Void)?
+    var stateDidChange: ((CaptureState) -> Void)?
+    var readinessDidChange: ((CaptureReadiness) -> Void)?
 
-    private(set) var state: AutoCaptureController.State = .idle {
+    private(set) var state: CaptureState = .idle {
         didSet {
             guard state != oldValue else { return }
             stateDidChange?(state)
         }
     }
 
-    private(set) var readiness: LiveCaptureController.ReadinessLevel = .none {
+    private(set) var readiness: CaptureReadiness = .none {
         didSet {
             guard readiness != oldValue else { return }
             readinessDidChange?(readiness)
@@ -327,7 +307,7 @@ final class DataScannerCaptureController: NSObject, DataScannerViewControllerDel
 
         let viewBounds = scanner.view.bounds
         let payloadItems = items.map { textItem -> RecognizedPayload.Item in
-            LiveCaptureController.RecognizedPayload.Item(
+            RecognizedPayload.Item(
                 text: textItem.transcript,
                 boundingBox: Self.normalizedRect(from: textItem.bounds, in: viewBounds)
             )
@@ -453,7 +433,7 @@ private final class ScannerHostingViewController: UIViewController {
 }
 
 @available(iOS 16.0, *)
-extension AutoCaptureController.State {
+extension CaptureState {
     var descriptor: (text: LocalizedStringKey, icon: String) {
         switch self {
         case .idle:

@@ -1,12 +1,13 @@
 "scan.navigation.title" = "Scan Ingredients";
 "scan.status.move_closer" = "Move closer to label";
-"scan.status.almost_ready" = "Almost ready—hold steady";
-"scan.status.ready" = "Capturing now…";
+"scan.status.almost_ready" = "Almost ready to capture";
+"scan.status.ready" = "Ready for a full-label scan";
 "scan.status.default_idle" = "Starting scanner…";
 "scan.status.default_preparing" = "Preparing scanner…";
-"scan.status.default_scanning" = "Hold steady for auto capture";
+"scan.status.default_scanning" = "Frame the full ingredient list";
+"scan.status.default_capturing" = "Capturing high-quality label photo…";
 "scan.status.default_processing" = "Analyzing frame…";
-"scan.status.default_paused" = "Capture complete";
+"scan.status.default_paused" = "Ready to review";
 "scan.status.default_error" = "Scanner paused";
 "scan.status.accessibility.hint" = "Scanner status updates as capture progresses.";
 "scan.error.title" = "Scanner unavailable";
@@ -19,17 +20,22 @@
 "common.info" = "Info";
 
 "settings.capture.heading" = "Capture";
-"settings.visionkit.toggle" = "VisionKit Auto Scanner";
-"settings.visionkit.description" = "Use Apple's Live Text pipeline when available for faster, on-device recognition.";
-"settings.visionkit.unsupported" = "VisionKit requires an A12 Bionic or newer device running iOS 16.";
+"settings.capture.full_label.title" = "Full-label still capture";
+"settings.capture.full_label.description" = "PungentRoots captures a full-resolution label photo before OCR so it can read ingredient panels instead of a single live-text snippet.";
 "settings.tips.title" = "Capture Tips";
 "settings.tips.fill_frame" = "Fill the frame with the ingredient list";
-"settings.tips.hold_steady" = "Hold steady while the camera focuses";
-"settings.tips.rescan" = "Rescan anytime to update results";
+"settings.tips.hold_steady" = "Reduce glare and hold steady before tapping Analyze Label";
+"settings.tips.rescan" = "Retake if the ingredient list is cut off or curved";
+
+"settings.quality.heading" = "Scan Quality";
+"settings.quality.complete.title" = "Complete label capture";
+"settings.quality.complete.description" = "A complete scan usually includes the ingredient header, dense ingredient text, and broad text coverage across the photo.";
+"settings.quality.partial.title" = "Why scans may need review";
+"settings.quality.partial.description" = "If the app sees only footer or allergen text, it avoids a Safe result and asks you to review or retake the label.";
 
 "settings.privacy.heading" = "Privacy";
 "settings.privacy.on_device.title" = "All processing on-device";
-"settings.privacy.on_device.description" = "Camera access powers automatic captures. No photos or text leave your device.";
+"settings.privacy.on_device.description" = "Camera access powers full-label OCR. No photos or text leave your device.";
 
 "settings.dictionary.heading" = "Detection Dictionary";
 "settings.dictionary.version" = "Version";
@@ -40,6 +46,8 @@
 "settings.support.heading" = "Support";
 "settings.support.fresh.title" = "Fresh Results";
 "settings.support.fresh.description" = "Scans are transient. Rescan for updated results with each label.";
+"settings.support.packaging.title" = "Packaging-first scanning";
+"settings.support.packaging.description" = "The scanner is tuned for glossy, curved, and off-center food labels instead of flat document pages.";
 
 "settings.navigation.title" = "Info & Settings";
-"settings.header.tagline" = "Detect alliums in ingredients instantly";
+"settings.header.tagline" = "Read full ingredient panels with packaging-aware OCR";

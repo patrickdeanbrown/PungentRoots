@@ -1,57 +1,110 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
+## Canonical Agent Guide
+- `AGENTS.md` is the source of truth for GPT-5.4/Codex work in this repo.
+- `CLAUDE.md` and `GEMINI.md` are thin compatibility wrappers. Update them only when agent-specific behavior changes.
+- When architecture, workflow, or validation guidance changes, update `AGENTS.md` first, then adjust wrappers if needed.
+
+## Project Structure & Module Ownership
 - `PungentRoots/`: SwiftUI app sources.
-  - `PungentRootsApp.swift`: bootstraps the dictionary and shares services through `AppEnvironment`.
-  - `Camera/`: `AutoCaptureController` chooses VisionKit’s `DataScannerViewController` when supported and falls back to `LiveCaptureController` (AVFoundation + Vision OCR) for older hardware. Legacy controller still exposes zoom/readiness heuristics used by overlays.
-  - `OCR/`: `OCRConfiguration` presets Vision request tuning; `TextAcquisitionService` converts scanner payloads into normalized strings.
-  - `Services/`: `AppEnvironment` (now `@Observable`) wires `DetectionEngine`, `TextAcquisitionService`, capture configuration, and shared normalizer instances. `MetricReporter` subscribes to `MXMetricManager` for performance telemetry.
-  - `Detection/`: dictionary models (`DetectDictionary`), rule-based `DetectionEngine`, and `DetectionScoring` constants.
-  - `Utilities/`: normalization and regex helpers used across detection/OCR layers.
-  - `Models/`: SwiftData-compatible `Scan` record plus supporting enums and match structs.
-  - `Views/`: SwiftUI presentation (camera overlays, detection cards, settings, guidance) that consume environment services and use system materials/Dynamic Type-friendly layouts.
-  - `Resources/`: localization assets (`en.lproj/Localizable.strings`) and bundled dictionary JSON (keep versioned and alphabetized by locale group).
-- `PungentRootsTests/`: unit targets built with Apple’s new `Testing` framework—cover normalization, detection scoring, and service fixtures.
-- `PungentRootsUITests/`: UI automation and accessibility assertions.
-- `Scripts/`: automation helpers (e.g. `run-tests.sh` wraps `xcodebuild` and simulator shutdown for CI/local consistency).
+  - `PungentRootsApp.swift`: boots the live `AppEnvironment` and injects it into the root scene.
+  - `ContentView.swift`: thin navigation shell; owns `@State private var flowModel = ScanFlowModel()`.
+  - `Camera/`:
+    - `CaptureTypes.swift`: shared `CapturePayload`, `CaptureState`, and `CaptureReadiness` used across capture and UI layers.
+    - `AutoCaptureController.swift`: orchestration layer that selects VisionKit `DataScannerViewController` when available and falls back to the legacy AVFoundation/Vision path.
+    - `LiveCaptureController.swift`: legacy capture implementation with readiness and zoom heuristics. Keep this behind shared capture-domain types.
+  - `OCR/`: OCR configuration and document camera helpers.
+  - `Services/`:
+    - `AppEnvironment.swift`: shared dependency container. It owns services and returns typed `ScanAnalysis` values from analysis entrypoints.
+    - `ScanFlowModel.swift`: `@MainActor @Observable` screen-level orchestration for capture, analysis, cancellation, UI-test preview state, and rescan flow.
+    - `TextAcquisitionService.swift`: converts capture payloads into normalized text inputs for detection.
+    - `MetricReporter.swift`: MetricKit subscriber for performance telemetry.
+  - `Detection/`: bundled dictionary loading, rule-based matching, and scoring thresholds.
+  - `Models/`:
+    - `Scan.swift`: core detection result, match, verdict, and persistence-facing model types.
+    - `ScanAnalysis.swift`: shared analysis payload passed between services, views, previews, and tests.
+  - `Utilities/`: normalization and regex helpers.
+  - `Views/`:
+    - `ScanCameraModuleView.swift`: capture surface, status badge, and capture error presentation.
+    - `ScanResultSectionView.swift`: processing/result container.
+    - `DetectionResultView.swift`: verdict card, transcript disclosure, and rescan affordance.
+    - `AdaptiveGlass.swift`: iOS 26 Liquid Glass helpers with pre-iOS 26 material fallbacks.
+    - Supporting overlays, empty states, and shared badges.
+  - `Resources/`: localization strings and the bundled detection dictionary.
+- `PungentRootsTests/`: unit coverage using Apple’s `Testing` framework.
+- `PungentRootsUITests/`: scenario-based UI coverage, including settings, transcript disclosure, rescan flow, and accessibility-size checks.
+- `Scripts/run-tests.sh`: canonical local/CI test wrapper.
 
-## Build, Test, and Development Commands
-- `xed .` or `open PungentRoots.xcodeproj`: open the project in Xcode 15+ (iOS 17+ SDK recommended).
-- `xcodebuild -scheme PungentRoots -destination "platform=iOS Simulator,OS=18.6,name=iPhone 16 Pro" build`: deterministic CI build.
-- `xcodebuild test -scheme PungentRoots -destination "platform=iOS Simulator,OS=18.6,name=iPhone 16 Pro"`: run all targets, including `Testing` suites.
-- `Scripts/run-tests.sh`: preferred wrapper for local/CI runs; executes the command above and shuts down simulators afterward to conserve resources.
-- `swift test`: keep parity once SwiftPM packages or previews are extracted.
+## Non-Negotiables
+- Minimum deployment target stays `iOS 18.5`.
+- iOS 26 APIs are additive only. Guard all Liquid Glass and newer UI behavior with availability checks and ship functional fallbacks below iOS 26.
+- Keep all OCR and detection processing on-device. Do not add network calls without explicit approval.
+- Do not leak `LiveCaptureController`-specific types into SwiftUI. Shared UI state must flow through `CapturePayload`, `CaptureState`, and `CaptureReadiness`.
+- `ContentView` stays thin. Put screen orchestration in `ScanFlowModel`, not in view bodies.
+- `AppEnvironment` is a service container and analysis entrypoint, not a screen view model.
+- Use `ScanAnalysis` instead of ad hoc tuples for analysis results.
+- Cancel stale analysis work before starting rescans or stopping the screen.
 
-## Coding Style & Naming Conventions
-- Swift source: 4-space indentation, avoid trailing whitespace, prefer `guard` for early exits, keep functions <80 lines.
-- Types use UpperCamelCase (`ScanResultView`); methods/properties use lowerCamelCase (`recognizeText`).
-- Organize files by feature and mirror that layout under test targets.
-- Use `///` doc comments for non-obvious logic; avoid inline chatter.
-- Camera/OCR work occurs off the main actor—hop back to `DispatchQueue.main`/`@MainActor` when mutating observable state. Prefer `AppEnvironment.analyzeAsync` for long-running detection.
+## Build, Test, and Validation Commands
+- `xed .` or `open PungentRoots.xcodeproj`: open the project in Xcode.
+- `xcodebuild -scheme PungentRoots -destination "platform=iOS Simulator,OS=18.6,name=iPhone 16 Pro" build`: deterministic simulator build.
+- `xcodebuild test -scheme PungentRoots -destination "platform=iOS Simulator,OS=18.6,name=iPhone 16 Pro"`: full test run.
+- `Scripts/run-tests.sh`: preferred wrapper for local and CI validation.
+
+## iOS Workflow Expectations
+- Inspect the full scan path before editing behavior: `ContentView` -> `ScanFlowModel` -> `AutoCaptureController`/`CaptureTypes` -> `TextAcquisitionService` -> `AppEnvironment.analyzeAsync` -> result views.
+- Prefer small dedicated SwiftUI views with stable trees and explicit state boundaries.
+- Keep async work and side effects out of view bodies. Start and cancel work from `ScanFlowModel`.
+- When updating capture behavior, validate both VisionKit-supported and forced-legacy paths.
+- When touching glass styling, keep it focused on high-value chrome: badges, compact controls, settings header, and primary actions. Avoid placing dense transcript content or the live camera preview inside heavy glass treatments.
+
+## Preferred Tools & References
+- Use the Apple docs MCP/context7 tooling for current SwiftUI, VisionKit, AVFoundation, Observation, and Liquid Glass guidance.
+- Codex users should prefer the Build iOS Apps skills when relevant:
+  - `build-ios-apps:swiftui-view-refactor`
+  - `build-ios-apps:swiftui-ui-patterns`
+  - `build-ios-apps:swiftui-liquid-glass`
+  - `build-ios-apps:swiftui-performance-audit`
+  - `build-ios-apps:ios-debugger-agent`
+- Capture citation links in PR notes when behavior depends on recent Apple API guidance.
+
+## Coding Style
+- Swift source uses 4-space indentation, no trailing whitespace, and `guard` for early exits.
+- Keep functions under roughly 80 lines. Extract helpers or subviews when bodies grow.
+- Types use UpperCamelCase; methods and properties use lowerCamelCase.
+- Prefer `@MainActor` or `MainActor.run` when mutating observable UI state from async work.
+- Add `///` comments only where logic is not obvious from the code.
 
 ## Testing Guidelines
-- Default to the `Testing` framework (`import Testing`) with structured `@Test` functions; mark UI-bound cases `@MainActor`.
-- Store deterministic fixtures alongside tests (dictionary snapshots, normalization samples, OCR mocks). Keep them lightweight and language-specific.
-- Name tests with behavior-focused phrases (`@Test("Onion powder triggers contains verdict")`).
-- Maintain ≥90% coverage on detection utilities and add regression tests whenever dictionaries, scoring thresholds, or OCR heuristics change.
-- For camera/OCR changes, include at least one integration test (or documented manual runbook) that exercises `AutoCaptureController` readiness transitions (VisionKit + legacy paths) and async detection flows.
+- Default to the `Testing` framework with behavior-focused `@Test` names.
+- Add or update tests when changing:
+  - detection scoring or dictionary behavior
+  - normalization or OCR heuristics
+  - `ScanFlowModel` state transitions
+  - capture-state mapping or overlay severity behavior
+- Maintain scenario-oriented UI tests for settings presentation, transcript disclosure, rescan behavior, and accessibility sizing.
+- Keep UI-test launch hooks working:
+  - `--ui-test-disable-capture`
+  - `--ui-test-preview-result`
+- If a camera/OCR change cannot be covered automatically, document the manual runbook in `PLAN.md`.
 
-## Documentation & Process Notes
-- Update `README.md` when workflows or architecture entry points change; keep the developer summary concise but actionable.
-- Maintain `AGENTS.md`, `GEMINI.md`, and `CLAUDE.md` in sync with repository structure. Claude and Gemini guides must remain equivalently detailed, each calling out their agent-specific best practices (Claude code snippets, Gemini CLI responses).
-- The detection dictionary is versioned—bump the JSON `version` string and note the rationale in commit/PR descriptions when editing ingredients.
-- Record manual validation steps for camera/OCR tuning in `PLAN.md` when automation is impractical.
+## Documentation & Process
+- Update `README.md` when architecture entry points, developer workflow, or platform strategy changes.
+- Update `PLAN.md` when manual validation steps or device coverage expectations change.
+- Bump the detection dictionary `version` string and record the rationale in commit/PR text whenever the JSON changes.
+- Before merging structural work, confirm `AGENTS.md`, `README.md`, and `PLAN.md` match the implementation.
 
 ## Commit & Pull Request Guidelines
-- Write imperative, present-tense summaries (`Add detection engine service`) with optional scope tags (`[Detection]`); keep the first line ≤72 chars.
-- Reference issues or Notion tasks in the body, and list validation evidence (`xcodebuild test`, simulator screenshots) before requesting review.
-- PRs must include: purpose summary, targeted screens/devices, accessibility considerations, and any new assets/fixtures as separate commits when practical.
-- Before merging, confirm `AGENTS.md`, `PLAN.md`, and agent guides reflect structural or process updates.
+- Use imperative, present-tense commit summaries with optional scopes, e.g. `[Camera] Unify capture state types`.
+- Keep the first commit line at or below 72 characters.
+- PRs should include:
+  - purpose summary
+  - validation evidence (`Scripts/run-tests.sh`, targeted simulator checks, screenshots if relevant)
+  - targeted devices or simulator configurations
+  - accessibility notes
+  - dictionary version rationale when applicable
 
-## Documentation Resources
-- Use the context7 tool to pull the latest Apple documentation—the Vision, AVFoundation, and SwiftUI APIs evolve quickly and recent changes may not be in cached references.
-- Capture citation links when quoting API guidance so reviewers can verify assumptions.
-
-## Security & Privacy Notes
-- Processing stays on-device; do not introduce network calls without explicit approval.
-- Strip sensitive text from debug logs and dispose of intermediate scan images after persistence completes.
+## Security & Privacy
+- Strip sensitive ingredient text from debug logs.
+- Dispose of intermediate scan images after they are no longer needed.
+- Keep privacy copy accurate: OCR and detection stay on-device, with no network dependency.
