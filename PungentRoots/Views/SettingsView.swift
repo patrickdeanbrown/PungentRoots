@@ -4,69 +4,44 @@ struct SettingsView: View {
     @Environment(AppEnvironment.self) private var appEnvironment
     @State private var showingCaptureTips = false
 
-#if os(iOS)
-    @MainActor
-    private var dataScannerSupported: Bool {
-        if #available(iOS 16.0, *) {
-            return DataScannerCaptureController.isSupported
-        } else {
-            return false
-        }
-    }
-#else
-    private var dataScannerSupported: Bool { false }
-#endif
-
     var body: some View {
-        @Bindable var bindings = appEnvironment
-
         ScrollView {
             VStack(spacing: 20) {
-                // App header
-                VStack(spacing: 12) {
-                    Image(systemName: "camera.macro.circle.fill")
-                        .font(.system(size: 56))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [Color.accentColor, Color.accentColor.opacity(0.7)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+                adaptiveGlassGroup(spacing: 18) {
+                    VStack(spacing: 12) {
+                        Image(systemName: "camera.macro.circle.fill")
+                            .font(.system(size: 56))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [Color.accentColor, Color.accentColor.opacity(0.7)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
                             )
-                        )
-                        .padding(.top, 8)
+                            .padding(.top, 8)
+                            .padding(12)
+                            .adaptiveBadgeSurface(tint: .accentColor)
 
-                    Text("Pungent Roots")
-                        .font(.title2.weight(.bold))
+                        Text("Pungent Roots")
+                            .font(.title2.weight(.bold))
 
-                    Text("settings.header.tagline")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
+                        Text("settings.header.tagline")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
                 }
-                .padding(.vertical, 8)
 
                 // Capture settings card
                 settingsCard(title: LocalizedStringKey("settings.capture.heading"), icon: "camera.viewfinder") {
                     VStack(alignment: .leading, spacing: 16) {
-                        Toggle(isOn: $bindings.captureOptions.prefersDataScanner) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("settings.visionkit.toggle")
-                                    .font(.subheadline.weight(.medium))
-                                Text("settings.visionkit.description")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .toggleStyle(.switch)
-                        .disabled(!dataScannerSupported)
-
-#if os(iOS)
-                        if !dataScannerSupported {
-                            Text("settings.visionkit.unsupported")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        }
-#endif
+                        infoRow(
+                            icon: "camera.aperture",
+                            title: LocalizedStringKey("settings.capture.full_label.title"),
+                            description: LocalizedStringKey("settings.capture.full_label.description")
+                        )
 
                         Button {
                             showingCaptureTips.toggle()
@@ -90,6 +65,21 @@ struct SettingsView: View {
                             .padding(.top, 4)
                             .transition(.opacity.combined(with: .move(edge: .top)))
                         }
+                    }
+                }
+
+                settingsCard(title: LocalizedStringKey("settings.quality.heading"), icon: "checkmark.seal.text.page.fill") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        infoRow(
+                            icon: "checkmark.seal.fill",
+                            title: LocalizedStringKey("settings.quality.complete.title"),
+                            description: LocalizedStringKey("settings.quality.complete.description")
+                        )
+                        infoRow(
+                            icon: "exclamationmark.triangle.fill",
+                            title: LocalizedStringKey("settings.quality.partial.title"),
+                            description: LocalizedStringKey("settings.quality.partial.description")
+                        )
                     }
                 }
 
@@ -152,6 +142,11 @@ struct SettingsView: View {
                             title: LocalizedStringKey("settings.support.fresh.title"),
                             description: LocalizedStringKey("settings.support.fresh.description")
                         )
+                        infoRow(
+                            icon: "camera.filters",
+                            title: LocalizedStringKey("settings.support.packaging.title"),
+                            description: LocalizedStringKey("settings.support.packaging.description")
+                        )
                     }
                 }
             }
@@ -172,10 +167,7 @@ struct SettingsView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
-        )
+        .adaptiveCardSurface(cornerRadius: 16)
     }
 
     private func tipRow(icon: String, text: LocalizedStringKey) -> some View {

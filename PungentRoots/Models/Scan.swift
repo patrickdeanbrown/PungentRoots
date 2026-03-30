@@ -42,12 +42,12 @@ final class Scan {
     }
 }
 
-enum ScanSource: String, Codable, CaseIterable, Hashable {
+enum ScanSource: String, Codable, CaseIterable, Hashable, Sendable {
     case photo
     case paste
 }
 
-enum Verdict: String, Codable, CaseIterable, Hashable {
+enum Verdict: String, Codable, CaseIterable, Hashable, Sendable {
     case safe
     case needsReview
     case contains
@@ -67,7 +67,7 @@ struct Match: Codable, Hashable, Sendable {
     }
 }
 
-enum MatchKind: String, Codable, CaseIterable, Hashable {
+enum MatchKind: String, Codable, CaseIterable, Hashable, Sendable {
     case definite
     case synonym
     case pattern
@@ -88,7 +88,7 @@ enum MatchKind: String, Codable, CaseIterable, Hashable {
     }
 }
 
-struct DetectionResult {
+struct DetectionResult: Equatable, Sendable {
     let matches: [Match]
     let riskScore: Double
     let verdict: Verdict

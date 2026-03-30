@@ -1,11 +1,11 @@
 #if canImport(MetricKit)
 
 import Foundation
-import MetricKit
+@preconcurrency import MetricKit
 import os
 
 @MainActor
-final class MetricReporter: NSObject, MXMetricManagerSubscriber {
+final class MetricReporter: NSObject, @preconcurrency MXMetricManagerSubscriber {
     static let shared = MetricReporter()
 
     private let logger = Logger(subsystem: "co.ouchieco.PungentRoots", category: "Metrics")

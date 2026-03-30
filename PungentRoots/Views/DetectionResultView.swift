@@ -1,12 +1,10 @@
 import SwiftUI
 
 struct DetectionResultView: View {
-    let normalizedText: String
-    let result: DetectionResult
+    let analysis: ScanAnalysis
     let capturedImage: UIImage?
     let detectionBoxes: [DetectionOverlay]
     @Binding var isShowingFullText: Bool
-    let onRescan: () -> Void
 
     @State private var showingHighInfo = false
     @State private var showingMediumInfo = false
@@ -14,10 +12,13 @@ struct DetectionResultView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            // Verdict badge at top with animation
-            VerdictBadge(verdict: result.verdict)
+            VerdictBadge(verdict: analysis.result.verdict)
                 .transition(.scale.combined(with: .opacity))
-                .animation(.spring(response: 0.5, dampingFraction: 0.7), value: result.verdict)
+                .animation(.spring(response: 0.5, dampingFraction: 0.7), value: analysis.result.verdict)
+
+            if analysis.hasWarnings {
+                qualityWarningSection
+            }
 
             if let image = capturedImage, !detectionBoxes.isEmpty {
                 capturedImageSection(image: image)
@@ -29,11 +30,40 @@ struct DetectionResultView: View {
 
             disclosureSection
                 .transition(.opacity)
-
-            actionButtonsSection
-                .transition(.move(edge: .bottom).combined(with: .opacity))
         }
-        .animation(.easeOut(duration: 0.3), value: result.matches.count)
+        .animation(.easeOut(duration: 0.3), value: analysis.result.matches.count)
+    }
+
+    private var qualityWarningSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(analysis.coverageStatus.title, systemImage: qualityIcon)
+                .font(.headline)
+                .foregroundStyle(qualityTint)
+
+            Text(analysis.coverageStatus.subtitle)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            ForEach(analysis.warnings, id: \.self) { warning in
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .foregroundStyle(qualityTint)
+                        .padding(.top, 2)
+                    Text(warning)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(qualityTint.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(qualityTint.opacity(0.22), lineWidth: 1)
+        )
     }
 
     @ViewBuilder
@@ -100,8 +130,11 @@ struct DetectionResultView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(color.opacity(0.6))
             }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
         }
         .buttonStyle(.plain)
+        .adaptiveBadgeSurface(tint: color)
         .popover(isPresented: isShowing) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
@@ -133,7 +166,7 @@ struct DetectionResultView: View {
     private var matchesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             if uniqueMatches.isEmpty {
-                Text("No matches were detected.")
+                Text(analysis.coverageStatus == .complete ? "No matches were detected." : "No definite matches were detected in the captured text.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             } else {
@@ -162,36 +195,17 @@ struct DetectionResultView: View {
             .accessibilityIdentifier("toggle-scanned-text")
 
             if isShowingFullText {
-                HighlightedTextView(text: normalizedText, matches: result.matches)
+                HighlightedTextView(text: analysis.normalizedText, matches: analysis.result.matches)
                     .frame(maxHeight: 260)
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
     }
 
-    private var actionButtonsSection: some View {
-        VStack(spacing: 12) {
-            Divider()
-                .padding(.vertical, 8)
-
-            // Primary action: Scan another
-            Button(action: onRescan) {
-                Label("Scan Another Label", systemImage: "camera.rotate")
-                    .font(.body.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .accessibilityLabel("Scan another label")
-            .accessibilityHint("Returns to camera to scan a new ingredient label")
-
-        }
-    }
-
     private var uniqueMatches: [MatchSummary] {
         var accumulator: [String: MatchAccumulator] = [:]
 
-        for match in result.matches {
+        for match in analysis.result.matches {
             let key = match.term.lowercased()
             let display = displayName(for: match.term)
             let current = accumulator[key]
@@ -207,6 +221,28 @@ struct DetectionResultView: View {
                 }
                 return lhs.priority > rhs.priority
             }
+    }
+
+    private var qualityTint: Color {
+        switch analysis.coverageStatus {
+        case .complete:
+            return .green
+        case .partial:
+            return .orange
+        case .insufficient:
+            return .red
+        }
+    }
+
+    private var qualityIcon: String {
+        switch analysis.coverageStatus {
+        case .complete:
+            return "checkmark.seal.fill"
+        case .partial:
+            return "exclamationmark.triangle.fill"
+        case .insufficient:
+            return "camera.aperture"
+        }
     }
 
     private func displayName(for term: String) -> String {

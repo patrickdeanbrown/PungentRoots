@@ -8,35 +8,9 @@ import os
 
 #if os(iOS)
 final class LiveCaptureController: NSObject, ObservableObject {
-    enum State: Equatable {
-        case idle
-        case preparing
-        case scanning
-        case processing
-        case paused
-        case error(String)
-    }
-
-    struct RecognizedPayload {
-        struct Item {
-            let text: String
-            let boundingBox: CGRect
-        }
-
-        let items: [Item]
-        let capturedImage: UIImage?
-
-        var strings: [String] {
-            items.map { $0.text }
-        }
-    }
-
-    enum ReadinessLevel: Equatable {
-        case none          // Not scanning or no feedback available
-        case tooFar        // Not enough text detected
-        case almostReady   // Text detected but quality not high enough
-        case ready         // All criteria met, will capture soon
-    }
+    typealias State = CaptureState
+    typealias RecognizedPayload = CapturePayload
+    typealias ReadinessLevel = CaptureReadiness
 
     @Published private(set) var state: State = .idle
     @Published private(set) var zoomFactor: CGFloat = 1.0
@@ -451,33 +425,9 @@ struct LiveCameraPreview: UIViewRepresentable {
 }
 #else
 final class LiveCaptureController: ObservableObject {
-    enum State: Equatable {
-        case idle
-        case preparing
-        case scanning
-        case processing
-        case paused
-        case error(String)
-    }
-
-    enum ReadinessLevel: Equatable {
-        case none
-        case tooFar
-        case almostReady
-        case ready
-    }
-
-    struct RecognizedPayload {
-        struct Item {
-            let text: String
-            let boundingBox: CGRect
-        }
-
-        let items: [Item]
-        let capturedImage: UIImage?
-
-        var strings: [String] { items.map { $0.text } }
-    }
+    typealias State = CaptureState
+    typealias ReadinessLevel = CaptureReadiness
+    typealias RecognizedPayload = CapturePayload
 
     @Published private(set) var state: State = .idle
     @Published private(set) var readiness: ReadinessLevel = .none
@@ -493,22 +443,3 @@ final class LiveCaptureController: ObservableObject {
     func setZoom(_ factor: CGFloat) {}
 }
 #endif
-
-extension LiveCaptureController.State {
-    var descriptor: (text: String, icon: String) {
-        switch self {
-        case .idle:
-            return ("Starting camera…", "camera")
-        case .preparing:
-            return ("Preparing camera…", "camera")
-        case .scanning:
-            return ("Hold steady for auto capture", "camera.viewfinder")
-        case .processing:
-            return ("Analyzing frame…", "wand.and.stars")
-        case .paused:
-            return ("Capture complete", "checkmark.circle")
-        case .error:
-            return ("Camera paused", "exclamationmark.triangle")
-        }
-    }
-}
